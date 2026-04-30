@@ -22,14 +22,14 @@ async function playCommand(sock, chatId, message, args) {
 
         // Tuma Thumbnail
         await sock.sendMessage(chatId, {
-            image: { url: video.thumbnail },
-            caption: `🎵 *Title:* ${video.title}\n👤 *Author:* ${video.author.name}`
+            image: { url: v.thumbnail },
+            caption: `🎵 *Title:* ${v.title}\n👤 *Author:* ${v.author.name}`
         }, { quoted: message });
 
         await sock.sendMessage(chatId, { react: { text: '📥', key: message.key } }).catch(() => {});
 
         // Get audio stream URL using ytdl-core
-        const videoInfo = await ytdl.getInfo(video.url);
+        const videoInfo = await ytdl.getInfo(v.url);
         const audioFormat = ytdl.chooseFormat(videoInfo.formats, { 
             quality: 'highestaudio',
             filter: 'audioonly' 
@@ -43,7 +43,7 @@ async function playCommand(sock, chatId, message, args) {
         await sock.sendMessage(chatId, {
             audio: { url: audioFormat.url },
             mimetype: 'audio/mpeg',
-            fileName: `${video.title}.mp3`
+            fileName: `${v.title}.mp3`
         }, { quoted: message });
 
         await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } }).catch(() => {});
