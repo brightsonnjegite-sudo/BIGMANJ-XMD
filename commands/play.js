@@ -1,10 +1,13 @@
 /**
- * play.js - MIKI MUSIC (JSON ADAPTIVE)
- * Inasoma link hata kama haina extension (.mp3/.mp4)
+ * play.js - MIKI MUSIC (YTDL-CORE VERSION)
+ * Using local ytdl-core instead of external API for better reliability
  */
 
 const yts = require('yt-search');
-const axios = require('axios');
+const ytdl = require('ytdl-core');
+const YTDownloader = require('../lib/ytdl2');
+const fs = require('fs');
+const path = require('path');
 
 async function playCommand(sock, chatId, message, args) {
     const query = Array.isArray(args) ? args.join(' ') : args;
@@ -19,47 +22,28 @@ async function playCommand(sock, chatId, message, args) {
 
         // Tuma Thumbnail
         await sock.sendMessage(chatId, {
-            image: { url: v.thumbnail },
-            caption: `🎵 *Title:* ${v.title}\n👤 *Author:* ${v.author.name}`
+            image: { url: video.thumbnail },
+            caption: `🎵 *Title:* ${video.title}\n👤 *Author:* ${video.author.name}`
         }, { quoted: message });
 
-        // 1. Fetch JSON kutoka API
-        const api = `https://nayan-video-downloader.vercel.app/alldown?url=${encodeURIComponent(v.url)}`;
-        const res = await axios.get(api, { timeout: 15000 });
+        await sock.sendMessage(chatId, { react: { text: '📥', key: message.key } }).catch(() => {});
 
-        // 2. SMART EXTRACTION (Inatafuta link kwny JSON popote ilipo)
-        let audioUrl = null;
-        const rawData = res.data;
-
-        // Angalia structure uliyotuma (res.data.data.data.high)
-        if (rawData?.data?.data?.high) {
-            audioUrl = rawData.data.data.high;
-        } else if (rawData?.data?.high) {
-            audioUrl = rawData.data.high;
-        } else {
-            // Kama structure imebadilika, search link yoyote ya 'download'
-            const searchLinks = JSON.stringify(rawData).match(/https?:\/\/[^\s"']+/g);
-            audioUrl = searchLinks?.find(link => link.includes('download') || link.includes('ymcdn'));
-        }
-
-        if (!audioUrl) throw new Error("Link ya audio haikupatikana kwny JSON.");
-
-        // 3. DOWNLOAD AUDIO (Muhimu: Headers lazima ziwepo)
-        const audioRes = await axios.get(audioUrl, {
-            responseType: 'arraybuffer',
-            timeout: 60000,
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36',
-                'Accept': '*/*',
-                'Connection': 'keep-alive'
-            }
+        // Get audio stream URL using ytdl-core
+        const videoInfo = await ytdl.getInfo(video.url);
+        const audioFormat = ytdl.chooseFormat(videoInfo.formats, { 
+            quality: 'highestaudio',
+            filter: 'audioonly' 
         });
 
-        // 4. TUMA WHATSAPP
+        if (!audioFormat || !audioFormat.url) {
+            throw new Error("Failed to get audio stream URL");
+        }
+
+        // TUMA WHATSAPP
         await sock.sendMessage(chatId, {
-            audio: Buffer.from(audioRes.data),
-            mimetype: 'audio/mp4',
-            fileName: `${v.title}.mp3`
+            audio: { url: audioFormat.url },
+            mimetype: 'audio/mpeg',
+            fileName: `${video.title}.mp3`
         }, { quoted: message });
 
         await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } }).catch(() => {});
