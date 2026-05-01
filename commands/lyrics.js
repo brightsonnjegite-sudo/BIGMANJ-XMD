@@ -10,7 +10,7 @@ async function lyricsCommand(sock, chatId, songTitle, message) {
 
     try {
         // Use lyricsapi.fly.dev and return only the raw lyrics text
-        const apiUrl = `https://lyricsapi.fly.dev/api/lyrics?q=${encodeURIComponent(songTitle)}`;
+        const apiUrl = `https://eliteprotech-apis.zone.id/lyrics?query=${encodeURIComponent(songTitle)}`;
         const res = await fetch(apiUrl);
         
         if (!res.ok) {
