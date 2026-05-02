@@ -11,9 +11,25 @@ async function newgroupCommand(sock, chatId, message, args) {
 
         // Get bot number for reference
         const botNumber = sock.user?.id?.split(':')[0] || '';
+        
+        // Check if bot is connected
+        if (!sock.user || !sock.user.id) {
+            return await sock.sendMessage(chatId, {
+                text: '❌ *Bot haijaunganishwa vizuri. Jaribu tena baada ya muda. (Bot not properly connected. Try again later)*'
+            }, { quoted: message });
+        }
 
         // 1. Define group name (Jina la group)
-        const groupName = (args && Array.isArray(args) && args.join(' ').trim()) || `Mickey Group ${Date.now()}`;
+        let groupName = (args && Array.isArray(args) && args.join(' ').trim()) || `Mickey Group ${Date.now()}`;
+
+        // Validate and clean group name
+        groupName = groupName.replace(/[^\w\s\-_]/g, '').trim(); // Remove special characters except spaces, hyphens, underscores
+        if (groupName.length > 25) {
+            groupName = groupName.substring(0, 25).trim(); // WhatsApp limit
+        }
+        if (groupName.length < 1) {
+            groupName = `Mickey Group ${Date.now()}`;
+        }
 
         if (!groupName || groupName.length === 0) {
             return await sock.sendMessage(chatId, {
@@ -59,7 +75,21 @@ async function newgroupCommand(sock, chatId, message, args) {
             }, { quoted: message });
         }
 
+        // Validate members array
+        members = members.filter(jid => jid && typeof jid === 'string' && jid.includes('@'));
+        if (members.length > 256) { // WhatsApp group limit
+            members = members.slice(0, 256);
+        }
+        if (members.length < 2) {
+            return await sock.sendMessage(chatId, {
+                text: '❌ *Unahitaji angalau wanachama 2 kuunda group. (Need at least 2 members to create group)*'
+            }, { quoted: message });
+        }
+
         try {
+            // Add small delay to avoid rate limiting
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
             // 4. Create group (Tengeneza group)
             const newGroup = await sock.groupCreate(groupName, members);
 
@@ -83,8 +113,21 @@ async function newgroupCommand(sock, chatId, message, args) {
 
         } catch (error) {
             console.error('Group creation error:', error);
+            
+            let errorMessage = '❌ *Imeshindwa kutengeneza group!* (Failed to create group)';
+            
+            if (error.message?.includes('bad-request') || error.data === 400) {
+                errorMessage += '\n\n*Sababu ya kushindwa:* (Possible reasons:)\n• Jina la group si sahihi (Invalid group name)\n• Idadi ya wanachama kupita kiasi (Too many members)\n• Akaunti ya bot haina ruhusa (Bot account restrictions)\n• Jaribu tena baada ya dakika chache (Try again after a few minutes)';
+            } else if (error.message?.includes('rate-overlimit')) {
+                errorMessage += '\n\n*Sababu:* Umefanya maagizo mengi sana. Subiri dakika 5-10 kisha jaribu tena. (Rate limit exceeded. Wait 5-10 minutes and try again)';
+            } else if (error.message?.includes('not-authorized')) {
+                errorMessage += '\n\n*Sababu:* Akaunti ya bot haina ruhusa ya kutengeneza groups. (Bot account not authorized to create groups)';
+            } else {
+                errorMessage += `\n\n_Error: ${error.message || 'Unknown error'}_`;
+            }
+            
             await sock.sendMessage(chatId, {
-                text: `❌ *Imeshindwa kutengeneza group!* (Failed to create group)\n\n_Error: ${error.message || 'Unknown error'}_`
+                text: errorMessage
             }, { quoted: message });
         }
 

@@ -1,11 +1,8 @@
 /**
- * repo.js - Repository Information with Enhanced Features
- * Shows comprehensive GitHub repo info with interactive buttons
+ * repo.js - Repository Information (Simplified)
+ * Shows GitHub repo info without complex interactive messages
  */
 const axios = require('axios');
-const { generateWAMessageFromContent, proto } = require('@whiskeysockets/baileys');
-
-const repoCache = new Map();
 
 // Format date to readable format
 function formatDate(dateString) {
@@ -33,16 +30,17 @@ async function repoCommand(sock, chatId, message) {
     if (!sock || !chatId) return;
 
     try {
+        // Send loading reaction
         await sock.sendMessage(chatId, { react: { text: '🔄', key: message.key } });
 
+        // Fetch repository data
         const repoRes = await axios.get('https://api.github.com/repos/Mickeydeveloper/Mickey-Glitch', {
             headers: { 'User-Agent': 'MickeyBot' }
         });
 
         const repo = repoRes.data;
-        repoCache.set(chatId, repo);
 
-        // Build comprehensive repo information
+        // Build repository information text
         const repoText = `✨ *${repo.name.toUpperCase()}*\n\n` +
             `👤 *Owner:* ${repo.owner.login}\n` +
             `⭐ *Stars:* ${repo.stargazers_count.toLocaleString()}\n` +
@@ -53,65 +51,31 @@ async function repoCommand(sock, chatId, message) {
             `📜 *License:* ${repo.license?.name || 'N/A'}\n` +
             `📅 *Last Updated:* ${formatDate(repo.updated_at)}\n\n` +
             `📝 *Description:*\n${repo.description || 'No description available'}\n\n` +
-            `🔗 *Repository:* ${repo.html_url}`;
+            `🔗 *Repository:* ${repo.html_url}\n\n` +
+            `🌐 *Visit GitHub:* ${repo.html_url}\n` +
+            `🐛 *Issues:* ${repo.html_url}/issues\n` +
+            `👥 *Contributors:* ${repo.html_url}/graphs/contributors\n` +
+            `📚 *Clone URL:* \`${repo.clone_url}\`\n\n` +
+            `💡 *Type .menu to see all commands*`;
 
-        // Send message with enhanced buttons
-        let msg = generateWAMessageFromContent(chatId, {
-            interactiveMessage: proto.Message.InteractiveMessage.fromObject({
-                body: proto.Message.InteractiveMessage.Body.fromObject({
-                    text: repoText
-                }),
-                footer: proto.Message.InteractiveMessage.Footer.fromObject({
-                    text: "Quantum Base • Mickey Glitch V3.0.5"
-                }),
-                nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
-                    buttons: [
-                        {
-                            name: "cta_url",
-                            buttonParamsJson: JSON.stringify({
-                                display_text: "🌐 Visit GitHub",
-                                url: repo.html_url
-                            })
-                        },
-                        {
-                            name: "cta_url",
-                            buttonParamsJson: JSON.stringify({
-                                display_text: "🐛 Open Issues",
-                                url: `${repo.html_url}/issues`
-                            })
-                        },
-                        {
-                            name: "cta_url",
-                            buttonParamsJson: JSON.stringify({
-                                display_text: "👥 Contributors",
-                                url: `${repo.html_url}/graphs/contributors`
-                            })
-                        },
-                        {
-                            name: "cta_url",
-                            buttonParamsJson: JSON.stringify({
-                                display_text: "📚 Clone",
-                                url: repo.clone_url
-                            })
-                        },
-                        {
-                            name: "quick_reply",
-                            buttonParamsJson: JSON.stringify({
-                                display_text: "📋 Menu",
-                                id: ".menu"
-                            })
-                        }
-                    ]
-                })
-            })
+        // Send simple text message
+        await sock.sendMessage(chatId, {
+            text: repoText
         }, { quoted: message });
 
-        await sock.relayMessage(chatId, msg.message, { messageId: msg.key.id });
+        // Send success reaction
         await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } });
 
     } catch (err) {
         console.error('Repo Error:', err);
-        await sock.sendMessage(chatId, { text: `❌ *Error fetching repo data.*\n\n_${err.message}_` });
+
+        // Send error message
+        await sock.sendMessage(chatId, {
+            text: `❌ *Error fetching repo data.*\n\n_${err.message}_`
+        }, { quoted: message });
+
+        // Send error reaction
+        await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
     }
 }
 
