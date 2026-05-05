@@ -123,7 +123,7 @@ async function handleChatbotMessage(sock, chatId, m, userText = null) {
 async function groupChatbotToggleCommand(sock, chatId, m, body) {
     try {
         const state = loadState();
-        const args = (body || '').trim().split(/\s+/).slice(1);
+        const args = (body || '').trim().split(/\s+/);
 
         if (args.length === 0) {
             return await sock.sendMessage(chatId, { 

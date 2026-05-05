@@ -46,7 +46,9 @@ function getRandomEmoji() {
 async function autoView(sock, statusKey) {
     if (!statusKey?.id) return;
     try {
+        console.log(`[AutoView] Marking status as read: ${statusKey.id}`);
         await sock.readMessages([statusKey]);
+        console.log(`[AutoView] ✅ Status viewed: ${statusKey.id}`);
     } catch (err) {
         console.error(`[AutoView] Failed:`, err.message);
     }
@@ -55,11 +57,12 @@ async function autoView(sock, statusKey) {
 async function autoLike(sock, statusKey) {
     if (!statusKey?.id || !statusKey?.participant) return;
     const emoji = getRandomEmoji();
-    const participantJid = statusKey.participant;
     try {
-        await sock.sendMessage(participantJid, {
+        console.log(`[AutoLike] Sending reaction: ${emoji} to status ${statusKey.id}`);
+        await sock.sendMessage('status@broadcast', {
             react: { text: emoji, key: statusKey }
         });
+        console.log(`[AutoLike] ✅ Reaction sent: ${emoji}`);
     } catch (err) {
         console.error(`[AutoLike] Failed:`, err.message || err);
     }

@@ -94,7 +94,7 @@ async function shazamCommand(sock, chatId, message) {
                 text: caption,
                 footer: 'MICKEY GLITCH V3.0',
                 buttons: [
-                    { id: playCmd, text: '📥 DOWNLOAD MP3: ' + title }
+                    { id: playCmd, text: '📥 ' + artist + ' - ' + title }
                 ]
             }, { quoted: message });
 
