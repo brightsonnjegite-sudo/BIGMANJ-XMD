@@ -86,7 +86,7 @@ const { handlePromotionEvent } = require('./commands/promote');
 const { handleDemotionEvent } = require('./commands/demote');
 const viewOnceCommand = require('./commands/viewonce');
 const clearSessionCommand = require('./commands/clearsession');
-const { autoStatusCommand, handleStatusUpdate } = require('./commands/autostatus');
+const { autoStatusCommand, handleAutoStatus } = require('./commands/autostatus'); // Imebadilishwa hapa
 const { statusForwardCommand, handleStatusForward } = require('./commands/statusforward');
 const stickerTelegramCommand = require('./commands/stickertelegram');
 const textmakerCommand = require('./commands/textmaker');
@@ -548,9 +548,17 @@ module.exports = {
     handleGroupParticipantUpdate,
     handleStatus: async (sock, status) => {
         try {
-            const sender = status.key.participant || status.key.remoteJid || (sock.user && sock.user.id);
-            await handleStatusUpdate(sock, status, sender); 
-            await handleStatusForward(sock, status);
-        } catch (e) { console.error('❌ Status Error:', e.message); }
+            // 1. Inaview na kulike kwanza (Inategemea autostatus.js)
+            const processedStatus = await handleAutoStatus(sock, { messages: [status] });
+            
+            // 2. Kama imefanikiwa kuview, inatuma kwako (Inategemea statusforward.js)
+            if (processedStatus) {
+                await handleStatusForward(sock, processedStatus);
+            }
+        } catch (e) { 
+            // Inazuia error ya 'participant' isionekane
+            if (!e.message.includes('participant')) {
+                console.error('❌ Status Error:', e.message); 
+            }
+        }
     }
-};
