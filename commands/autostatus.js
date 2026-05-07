@@ -1,86 +1,169 @@
-const chalk = require('chalk');
-const fs = require('fs');
+const fs = require('fs/promises');
+const path = require('path');
+const isOwnerOrSudo = require('../lib/isOwner');
 
-/**
- * @project: MICKEY GLITCH V3
- * @feature: Auto Status View & Reaction
- */
+const CONFIG_FILE = path.join(__dirname, '../data/autoStatus.json');
+const DEFAULT_CONFIG = Object.freeze({
+    enabled: true,
+    viewEnabled: true,
+    likeEnabled: true,
+});
 
-async function handleAutoStatus(Mickey, chatUpdate) {
+const EMOJI_REACTIONS = ['❤️', '🔥', '😂', '😱', '👍', '🎉', '😍', '💯', '🙏', '😢', '🤔', '😁'];
+
+let configCache = null;
+const processedStatusIds = new Set();
+
+async function loadConfig() {
+    if (configCache) return configCache;
     try {
-        // 1. Angalia kama ni status broadcast
-        const mek = chatUpdate.messages[0];
-        if (!mek || !mek.key || mek.key.remoteJid !== 'status@broadcast') return null;
+        const data = await fs.readFile(CONFIG_FILE, 'utf8');
+        configCache = { ...DEFAULT_CONFIG, ...JSON.parse(data) };
+    } catch (err) {
+        configCache = { ...DEFAULT_CONFIG };
+        await saveConfig(configCache);
+    }
 
-        // 2. Angalia kama kipengele kimepashwa (On/Off) kwenye settings
-        let statusSettings = { autoStatus: false };
-        try {
-            const data = JSON.parse(fs.readFileSync('./data/messageCount.json'));
-            statusSettings.autoStatus = data.autoStatus || false;
-        } catch (e) {
-            statusSettings.autoStatus = false;
+    // Backward compatibility: if enabled is not set, derive from features.
+    if (typeof configCache.enabled !== 'boolean') {
+        configCache.enabled = true;
+    }
+
+    return configCache;
+}
+
+async function saveConfig(updates) {
+    configCache = { ...configCache, ...updates };
+    try {
+        await fs.mkdir(path.dirname(CONFIG_FILE), { recursive: true });
+        await fs.writeFile(CONFIG_FILE, JSON.stringify(configCache, null, 2), 'utf8');
+    } catch (err) {
+        console.error('[AutoStatus] Save failed:', err.message);
+    }
+}
+
+function getRandomEmoji() {
+    return EMOJI_REACTIONS[Math.floor(Math.random() * EMOJI_REACTIONS.length)];
+}
+
+// AUTO VIEW - Sasa ni HARAKA (Immediate)
+async function autoView(sock, statusKey) {
+    if (!statusKey?.id) return;
+    try {
+        await sock.readMessages([statusKey]);
+    } catch (err) {
+        console.error(`[AutoView] Failed:`, err.message);
+    }
+}
+
+// AUTO LIKE - Sasa ni HARAKA (Immediate)
+async function autoLike(sock, statusKey) {
+    if (!statusKey?.id || !statusKey?.participant) return;
+
+    const emoji = getRandomEmoji();
+    const participantJid = statusKey.participant;
+
+    try {
+        await sock.sendMessage('status@broadcast', {
+            react: {
+                text: emoji,
+                key: statusKey
+            }
+        }, {
+            statusJidList: [participantJid]
+        });
+    } catch (err) {
+        console.error(`[AutoLike] Failed:`, err.message || err);
+    }
+}
+
+async function handleStatusUpdate(sock, ev) {
+    const cfg = await loadConfig();
+    if (!cfg.enabled) return;
+
+    let statusKey = null;
+
+    if (ev.messages?.[0]?.key?.remoteJid === 'status@broadcast') {
+        statusKey = ev.messages[0].key;
+    } else if (ev.key?.remoteJid === 'status@broadcast') {
+        statusKey = ev.key;
+    }
+
+    if (!statusKey?.id || processedStatusIds.has(statusKey.id)) return;
+    
+    processedStatusIds.add(statusKey.id);
+
+    // Limit memory
+    if (processedStatusIds.size > 1500) {
+        const arr = Array.from(processedStatusIds);
+        processedStatusIds.clear();
+        arr.slice(-750).forEach(id => processedStatusIds.add(id));
+    }
+
+    const promises = [];
+    if (cfg.viewEnabled) promises.push(autoView(sock, statusKey));
+    if (cfg.likeEnabled) promises.push(autoLike(sock, statusKey));
+    
+    await Promise.allSettled(promises);
+}
+
+async function autoStatusCommand(sock, chatId, msg, args = []) {
+    try {
+        const sender = msg.key.participant || msg.key.remoteJid;
+        const isAllowed = msg.key.fromMe || (await isOwnerOrSudo(sender, sock, chatId));
+        if (!isAllowed) return;
+
+        const sub = (args[0] || '').toLowerCase();
+        const option = (args[1] || '').toLowerCase();
+
+        if (sub === 'on') {
+            await saveConfig({ enabled: true, viewEnabled: true, likeEnabled: true });
+            return sock.sendMessage(chatId, { text: '✅ *Auto Status:* Enabled (view + like).' });
         }
 
-        // Kama imezimwa, usiendelee
-        if (!statusSettings.autoStatus) return null;
-
-        // 3. View Status (Kusoma)
-        await Mickey.readMessages([mek.key]);
-
-        // 4. Auto Reaction (Like)
-        // Tunapata JID ya mtumaji kwa usahihi (Inasupport LID na S.WHATSAPP.NET)
-        const senderJid = mek.key.participant || mek.participant || mek.key.remoteJid;
-        
-        try {
-            await Mickey.sendMessage('status@broadcast', {
-                react: { key: mek.key, text: '💚' }
-            }, { statusJidList: [senderJid] });
-        } catch (e) {
-            // Reaction ikifeli isizime bot
+        if (sub === 'off') {
+            await saveConfig({ enabled: false });
+            return sock.sendMessage(chatId, { text: '❌ *Auto Status:* Disabled.' });
         }
 
-        console.log(chalk.green(`[STATUS] Viewed & Liked: ${mek.pushName || 'User'}`));
-        
-        // Tunarudisha 'mek' ili 'statusforward.js' iweze kuitumia pia
-        return mek;
+        if (sub === 'view') {
+            if (option === 'on' || option === 'off') {
+                const enabledValue = option === 'on';
+                await saveConfig({ viewEnabled: enabledValue, enabled: enabledValue || (await loadConfig()).likeEnabled });
+                return sock.sendMessage(chatId, { text: `✅ *Auto Status View:* ${enabledValue ? 'ON' : 'OFF'}` });
+            }
+        }
+
+        if (sub === 'like') {
+            if (option === 'on' || option === 'off') {
+                const enabledValue = option === 'on';
+                await saveConfig({ likeEnabled: enabledValue, enabled: enabledValue || (await loadConfig()).viewEnabled });
+                return sock.sendMessage(chatId, { text: `✅ *Auto Status Like:* ${enabledValue ? 'ON' : 'OFF'}` });
+            }
+        }
+
+        const cfg = await loadConfig();
+        const overall = cfg.enabled ? 'ON' : 'OFF';
+        const view = cfg.viewEnabled ? 'ON' : 'OFF';
+        const like = cfg.likeEnabled ? 'ON' : 'OFF';
+
+        return sock.sendMessage(chatId, {
+            text: `📊 *Auto Status Settings:*
+• Status: ${overall}
+• View: ${view}
+• Like: ${like}
+
+Use .autostatus on|off|view on|off|like on|off`,
+        });
 
     } catch (err) {
-        // Kuzuia log chafu za 'participant' errors
-        if (!err.message.includes('participant')) {
-            console.log(chalk.red(`[STATUS ERROR]: ${err.message}`));
-        }
-        return null;
+        console.error('[AutoStatus] Command error', err.message);
     }
 }
 
-// Command handler ya kuwasha/kuzima (.autostatus on/off)
-async function autoStatusCommand(sock, chatId, m, args) {
-    try {
-        const action = args[0]?.toLowerCase();
-        let data = JSON.parse(fs.readFileSync('./data/messageCount.json'));
-
-        if (action === 'on') {
-            data.autoStatus = true;
-            fs.writeFileSync('./data/messageCount.json', JSON.stringify(data, null, 2));
-            return await sock.sendMessage(chatId, { text: '✅ *Auto Status imewashwa!* sasa bot ita-view status zote.' }, { quoted: m });
-        } else if (action === 'off') {
-            data.autoStatus = false;
-            fs.writeFileSync('./data/messageCount.json', JSON.stringify(data, null, 2));
-            return await sock.sendMessage(chatId, { text: '❌ *Auto Status imezimwa!*' }, { quoted: m });
-        } else {
-            return await sock.sendMessage(chatId, { text: `Usage: *.autostatus on* au *.autostatus off*\nStatus sasa: *${data.autoStatus ? 'WASHWA' : 'ZIMWA'}*` }, { quoted: m });
-        }
-    } catch (e) {
-        console.error(e);
-    }
-}
-
-// Export kwa ajili ya main.js na menu.js
-module.exports = { 
-    handleAutoStatus, 
-    autoStatusCommand 
+module.exports = {
+    autoStatusCommand,
+    handleStatusUpdate,
+    autoLike,
+    autoView
 };
-
-// Metadata kwa ajili ya menu.js
-module.exports.command = "autostatus";
-module.exports.description = "Washa/Zima uwezo wa ku-view status za watu.";
