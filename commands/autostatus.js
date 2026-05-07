@@ -9,7 +9,7 @@ const DEFAULT_CONFIG = Object.freeze({
     likeEnabled: true,
 });
 
-const EMOJI_REACTIONS = ['❤️', '🔥', '😂', '😱', '👍', '🎉', '😍', '💯', '🙏', '😢', '🤔', '😁'];
+const EMOJI_REACTIONS = ['❤️', '🔥', '😂', '👍', '🎉', '😍', '💯', '🙏', '😁'];
 
 let configCache = null;
 const processedStatusIds = new Set();
@@ -22,9 +22,6 @@ async function loadConfig() {
     } catch (err) {
         configCache = { ...DEFAULT_CONFIG };
         await saveConfig(configCache);
-    }
-    if (typeof configCache.enabled !== 'boolean') {
-        configCache.enabled = true;
     }
     return configCache;
 }
@@ -46,25 +43,39 @@ function getRandomEmoji() {
 async function autoView(sock, statusKey) {
     if (!statusKey?.id) return;
     try {
-        console.log(`[AutoView] Marking status as read: ${statusKey.id}`);
+        // Inatuma "read receipt" kwa status maalum
         await sock.readMessages([statusKey]);
-        console.log(`[AutoView] ✅ Status viewed: ${statusKey.id}`);
+        
+        // Njia mbadala ya kuhakikisha status imekuwa marked kama read
+        if (statusKey.participant) {
+            await sock.sendReceipt(statusKey.remoteJid, statusKey.participant, [statusKey.id], 'read');
+        }
+        
+        console.log(`[AutoView] ✅ Status viewed: ${statusKey.id} from ${statusKey.participant}`);
     } catch (err) {
         console.error(`[AutoView] Failed:`, err.message);
     }
 }
 
 async function autoLike(sock, statusKey) {
+    // Participant ni lazima ili reaction ifike kwa mtu sahihi
     if (!statusKey?.id || !statusKey?.participant) return;
+    
     const emoji = getRandomEmoji();
     try {
-        console.log(`[AutoLike] Sending reaction: ${emoji} to status ${statusKey.id}`);
         await sock.sendMessage('status@broadcast', {
-            react: { text: emoji, key: statusKey }
+            react: { 
+                text: emoji, 
+                key: statusKey 
+            }
+        }, { 
+            // Hii inahakikisha reaction inaonekana kwa aliyeweka status
+            statusJidList: [statusKey.participant] 
         });
-        console.log(`[AutoLike] ✅ Reaction sent: ${emoji}`);
+        
+        console.log(`[AutoLike] ✅ Reaction ${emoji} sent to: ${statusKey.participant}`);
     } catch (err) {
-        console.error(`[AutoLike] Failed:`, err.message || err);
+        console.error(`[AutoLike] Failed:`, err.message);
     }
 }
 
@@ -72,26 +83,33 @@ async function handleStatusUpdate(sock, ev) {
     const cfg = await loadConfig();
     if (!cfg.enabled) return;
 
-    let statusKey = null;
-    if (ev.messages?.[0]?.key?.remoteJid === 'status@broadcast') {
-        statusKey = ev.messages[0].key;
-    } else if (ev.key?.remoteJid === 'status@broadcast') {
-        statusKey = ev.key;
+    // Kunasa (Capture) message ya status
+    const msg = ev.messages?.[0];
+    if (!msg || msg.key.remoteJid !== 'status@broadcast') return;
+
+    const statusKey = msg.key;
+    
+    // Muhimu: Baadhi ya matoleo yanahitaji participant kutoka kwenye message yenyewe
+    if (!statusKey.participant && msg.participant) {
+        statusKey.participant = msg.participant;
     }
 
-    if (!statusKey?.id || processedStatusIds.has(statusKey.id)) return;
+    if (!statusKey.id || processedStatusIds.has(statusKey.id)) return;
     processedStatusIds.add(statusKey.id);
 
+    // Safisha cache ya IDs ikizidi 1500 (Memory management)
     if (processedStatusIds.size > 1500) {
         const arr = Array.from(processedStatusIds);
         processedStatusIds.clear();
         arr.slice(-750).forEach(id => processedStatusIds.add(id));
     }
 
-    const promises = [];
-    if (cfg.viewEnabled) promises.push(autoView(sock, statusKey));
-    if (cfg.likeEnabled) promises.push(autoLike(sock, statusKey));
-    await Promise.allSettled(promises);
+    // Tekeleza kwa pamoja (Concurrent execution)
+    const tasks = [];
+    if (cfg.viewEnabled) tasks.push(autoView(sock, statusKey));
+    if (cfg.likeEnabled) tasks.push(autoLike(sock, statusKey));
+    
+    await Promise.allSettled(tasks);
 }
 
 async function autoStatusCommand(sock, chatId, msg, args = []) {
@@ -105,7 +123,7 @@ async function autoStatusCommand(sock, chatId, msg, args = []) {
 
         if (sub === 'on') {
             await saveConfig({ enabled: true, viewEnabled: true, likeEnabled: true });
-            return sock.sendMessage(chatId, { text: '✅ *Auto Status:* Enabled (view + like).' });
+            return sock.sendMessage(chatId, { text: '✅ *Auto Status:* Enabled (View + Like).' });
         }
 
         if (sub === 'off') {
@@ -113,37 +131,36 @@ async function autoStatusCommand(sock, chatId, msg, args = []) {
             return sock.sendMessage(chatId, { text: '❌ *Auto Status:* Disabled.' });
         }
 
+        const cfg = await loadConfig();
+
         if (sub === 'view') {
-            if (option === 'on' || option === 'off') {
-                const val = option === 'on';
-                await saveConfig({ viewEnabled: val, enabled: val || (await loadConfig()).likeEnabled });
-                return sock.sendMessage(chatId, { text: `✅ *Auto Status View:* ${val ? 'ON' : 'OFF'}` });
-            }
+            const val = option === 'on';
+            await saveConfig({ viewEnabled: val });
+            return sock.sendMessage(chatId, { text: `👁️ *Auto View:* ${val ? 'ON' : 'OFF'}` });
         }
 
         if (sub === 'like') {
-            if (option === 'on' || option === 'off') {
-                const val = option === 'on';
-                await saveConfig({ likeEnabled: val, enabled: val || (await loadConfig()).viewEnabled });
-                return sock.sendMessage(chatId, { text: `✅ *Auto Status Like:* ${val ? 'ON' : 'OFF'}` });
-            }
+            const val = option === 'on';
+            await saveConfig({ likeEnabled: val });
+            return sock.sendMessage(chatId, { text: `❤️ *Auto Like:* ${val ? 'ON' : 'OFF'}` });
         }
 
-        const cfg = await loadConfig();
+        // Default: Onyesha menu ya settings
         return sock.sendMessage(chatId, {
             text: `📊 *Auto Status Settings:*
-• Status: ${cfg.enabled ? 'ON' : 'OFF'}
-• View: ${cfg.viewEnabled ? 'ON' : 'OFF'}
-• Like: ${cfg.likeEnabled ? 'ON' : 'OFF'}
+• Overall: ${cfg.enabled ? '✅' : '❌'}
+• View: ${cfg.viewEnabled ? '✅' : '❌'}
+• Like: ${cfg.likeEnabled ? '✅' : '❌'}
 
-Use .autostatus on|off|view on|off|like on|off`,
+*Commands:*
+.autostatus on | off
+.autostatus view on | off
+.autostatus like on | off`,
         });
     } catch (err) {
-        console.error('[AutoStatus] Command error', err.message);
+        console.error('[AutoStatus] Cmd error:', err.message);
     }
 }
 
-// FIX HAPA: Tuna-export function moja kwa moja kama main callable
 module.exports = autoStatusCommand;
-// Tunatunza handleStatusUpdate kama property kwa ajili ya main event loop
 module.exports.handleStatusUpdate = handleStatusUpdate;
