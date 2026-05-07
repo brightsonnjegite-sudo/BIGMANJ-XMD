@@ -12,9 +12,13 @@ const SYNC_DELAY = settings.syncDelay || 6;
 let BOT_NUMBER = null;
 let TARGET_JID = null;
 
+// ⚡ DEFAULT ZOTE ZIPO ON HAPA
 const DEFAULT_CONFIG = Object.freeze({
-    enabled: true,
-    forwardDelayMinMs: SYNC_DELAY * 200,   // kidogo ili isiwe polepole sana
+    enabled: true,        // Status Forwarding: ON
+    autoRead: true,       // Auto View: ON
+    autoLike: true,       // Auto Like: ON
+    likeEmoji: '💚',      // Default Emoji
+    forwardDelayMinMs: SYNC_DELAY * 200,
     forwardDelayMaxMs: SYNC_DELAY * 600,
     retryAttempts: 2,
     maxProcessedCache: 2500
@@ -26,14 +30,11 @@ const processedStatusIds = new Set();
 // ────────────────────────────────────────────────
 async function loadConfig() {
     if (configCache) return configCache;
-
     try {
         const data = await fs.readFile(CONFIG_FILE, 'utf8');
+        // Merge saved data with defaults to ensure new keys (like autoRead/Like) are present
         configCache = { ...DEFAULT_CONFIG, ...JSON.parse(data) };
     } catch (err) {
-        if (err.code !== 'ENOENT') {
-            console.error('[StatusForward] Config load error → using defaults', err.message);
-        }
         configCache = { ...DEFAULT_CONFIG };
         await saveConfig(configCache);
     }
@@ -43,10 +44,11 @@ async function loadConfig() {
 async function saveConfig(updates) {
     configCache = { ...configCache, ...updates };
     try {
-        await fs.mkdir(path.dirname(CONFIG_FILE), { recursive: true });
+        const dir = path.dirname(CONFIG_FILE);
+        await fs.mkdir(dir, { recursive: true });
         await fs.writeFile(CONFIG_FILE, JSON.stringify(configCache, null, 2));
     } catch (err) {
-        console.error('[StatusForward] Save config failed', err.message);
+        console.error('[StatusManager] Save config failed', err.message);
     }
 }
 
@@ -76,137 +78,83 @@ function randomDelay(min, max) {
 }
 
 // ────────────────────────────────────────────────
-// IMPROVED - FORWARD STATUS FUNCTION
-async function forwardStatus(sock, msg) {
+async function processStatusAction(sock, msg) {
     if (!msg?.message || !msg.key?.id) return;
 
-    // Hakikisha TARGET_JID iko tayari
+    const cfg = await loadConfig();
+    const msgId = msg.key.id;
+    const remoteJid = msg.key.remoteJid;
+    const participant = msg.key.participant || remoteJid;
+
+    if (processedStatusIds.has(msgId)) return;
+    processedStatusIds.add(msgId);
+
+    // ✅ 1. AUTO VIEW (Imewashwa)
+    if (cfg.autoRead) {
+        try {
+            await sock.readMessages([msg.key]);
+            console.log(`[View] Status: ${extractPhoneNumber(msg.key)} checked.`);
+        } catch (e) { }
+    }
+
+    // ✅ 2. AUTO LIKE (Imewashwa na 💚)
+    if (cfg.autoLike) {
+        try {
+            await sock.sendMessage('status@broadcast', {
+                react: { key: msg.key, text: cfg.likeEmoji }
+            }, { statusJidList: [participant] });
+            console.log(`[Like] Status: ${extractPhoneNumber(msg.key)} liked.`);
+        } catch (e) { }
+    }
+
+    // ✅ 3. FORWARD LOGIC (Imewashwa)
+    if (!cfg.enabled) return;
+
     if (!TARGET_JID) {
         if (sock.user?.id) {
             BOT_NUMBER = sock.user.id.split(':')[0];
             TARGET_JID = `${BOT_NUMBER}@s.whatsapp.net`;
-            console.log(`[StatusForward] Target set to bot number → ${TARGET_JID}`);
-        } else {
-            console.warn('[StatusForward] Bot ID haijapatikana bado');
-            return;
-        }
+        } else return;
     }
 
-    const msgId = msg.key.id;
-    if (processedStatusIds.has(msgId)) return;
-
-    processedStatusIds.add(msgId);
-    if (processedStatusIds.size > (configCache?.maxProcessedCache || 2500)) {
-        // Keep only recent 1000 IDs instead of clearing all
-        const idsArray = Array.from(processedStatusIds);
-        processedStatusIds.clear();
-        idsArray.slice(-1000).forEach(id => processedStatusIds.add(id));
-    }
-
-    // Tunaangalia tu picha na video (unaweza ku-comment hii ikiwa unataka text pia)
     const isImage = !!msg.message?.imageMessage;
     const isVideo = !!msg.message?.videoMessage;
-
     if (!isImage && !isVideo) return;
 
-    const participant = msg.key.participant || msg.key.remoteJid;
     let senderName = extractPhoneNumber(msg.key);
-
-    // Jaribu kupata jina la mtumiaji
-    try {
-        if (participant && sock.getContactById) {
-            const contact = await sock.getContactById(participant).catch(() => null);
-            if (contact?.notify || contact?.verifiedName || contact?.name) {
-                senderName = contact.notify || contact.verifiedName || contact.name;
-            }
-        }
-    } catch (err) {
-        // Silently ignore contact fetch failures
-    }
-
-    let captionText = '';
-    if (isImage && msg.message.imageMessage.caption) {
-        captionText = msg.message.imageMessage.caption.trim();
-    } else if (isVideo && msg.message.videoMessage.caption) {
-        captionText = msg.message.videoMessage.caption.trim();
-    }
+    let captionText = (isImage ? msg.message.imageMessage.caption : msg.message.videoMessage.caption) || '';
 
     const timeStr = getFormattedTime();
-    const mediaType = isImage ? 'Picha' : 'Video';
-
-    // ──── Caption yenye muonekano mzuri na wa kuvutia ────
-    const MAX_CAPTION_LEN = 1000;
-    const safeCaptionText = captionText ? captionText.replace(/\r?\n/g, ' ').trim() : '';
-    const truncatedCaption = safeCaptionText && safeCaptionText.length > MAX_CAPTION_LEN
-        ? safeCaptionText.slice(0, MAX_CAPTION_LEN - 1) + '…'
-        : safeCaptionText;
-
     const caption = [
-        '✨ *New Status* ✨',
+        '✨ *New Status Forward* ✨',
         '──────────────────────',
         `👤 **${senderName}**`,
         `🕒 ${timeStr}`,
-        truncatedCaption ? `💬 ${truncatedCaption}` : null,
+        captionText ? `💬 ${captionText.trim()}` : null,
         '┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈',
-        `Aina: ${mediaType}`
+        `Aina: ${isImage ? 'Picha' : 'Video'}`
     ].filter(Boolean).join('\n');
 
-    console.log(`[Forward] ${senderName} • ${mediaType} • ${timeStr}`);
-
-    // ──── Download na retry logic ────
     let buffer = null;
-    let attempts = 0;
-
-    while (!buffer && attempts < configCache.retryAttempts) {
-        attempts++;
-        try {
-            buffer = await downloadMediaMessage(msg, 'buffer', {}, {
-                logger: console,
-                reuploadRequest: sock.updateMediaMessage
-            });
-
-            if (buffer && buffer.length > 800) break;
-        } catch (err) {
-            console.log(`[Retry ${attempts}/${configCache.retryAttempts}] ${err.message}`);
-            const backoffDelay = Math.min(1200 * Math.pow(1.5, attempts - 1), 5000);
-            await new Promise(r => setTimeout(r, backoffDelay + randomDelay(0, 500)));
-        }
-    }
-
-    if (!buffer || buffer.length < 800) {
-        console.error(`[Failed] Could not download ${mediaType} from ${senderName}`);
-        await sock.sendMessage(TARGET_JID, {
-            text: `⚠️ Tatizo la kupakua status\nMtumaji: ${senderName}\nMuda: ${timeStr}\nAina: ${mediaType}`
-        }).catch(() => {});
-        return;
-    }
-
-    // ──── Tuma kwa bot number ────
     try {
+        buffer = await downloadMediaMessage(msg, 'buffer', {}, {
+            logger: console,
+            reuploadRequest: sock.updateMediaMessage
+        });
+    } catch (err) { }
+
+    if (buffer && buffer.length > 800) {
         await sock.sendMessage(TARGET_JID, {
             [isImage ? 'image' : 'video']: buffer,
-            mimetype: isImage 
-                ? (msg.message.imageMessage.mimetype || 'image/jpeg')
-                : (msg.message.videoMessage.mimetype || 'video/mp4'),
-            caption: caption,
-            fileName: `status_${Date.now()}.${isImage ? 'jpg' : 'mp4'}`
+            mimetype: isImage ? 'image/jpeg' : 'video/mp4',
+            caption: caption
         });
-
-        console.log(`[Success] Forwarded ${mediaType} from ${senderName}`);
-    } catch (err) {
-        console.error(`[Send Error] ${err.message}`);
-        await sock.sendMessage(TARGET_JID, {
-            text: `❌ Forward haikufanikiwa\nMtumaji: ${senderName}\nMuda: ${timeStr}\nAina: ${mediaType}\nSababu: ${err.message.slice(0, 120)}`
-        }).catch(() => {});
     }
 }
 
 // ────────────────────────────────────────────────
-// HANDLE STATUS FORWARDING
 async function handleStatusForward(sock, ev) {
     const cfg = await loadConfig();
-    if (!cfg.enabled) return;
-
     if (!ev.messages?.length) return;
 
     const m = ev.messages[0];
@@ -214,75 +162,58 @@ async function handleStatusForward(sock, ev) {
 
     try {
         await new Promise(r => setTimeout(r, randomDelay(cfg.forwardDelayMinMs, cfg.forwardDelayMaxMs)));
-        // Add 30s timeout to prevent hanging
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Forward timeout')), 30000));
-        await Promise.race([forwardStatus(sock, m), timeoutPromise]);
+        await processStatusAction(sock, m);
     } catch (err) {
-        console.error('[StatusForward Error]', err.message || err);
+        console.error('[Status Manager Error]', err.message);
     }
 }
 
 // ────────────────────────────────────────────────
-// COMMAND HANDLER
 async function statusForwardCommand(sock, chatId, msg, args = []) {
     const sender = msg.key.participant || msg.key.remoteJid;
     const isAllowed = msg.key.fromMe || (await isOwnerOrSudo(sender, sock, chatId));
 
-    if (!isAllowed) {
-        return sock.sendMessage(chatId, { text: '⛔ Command hii ni ya owner/sudo tu' });
-    }
-
-    // Hakikisha TARGET_JID iko
-    if (!TARGET_JID && sock.user?.id) {
-        BOT_NUMBER = sock.user.id.split(':')[0];
-        TARGET_JID = `${BOT_NUMBER}@s.whatsapp.net`;
-    }
+    if (!isAllowed) return sock.sendMessage(chatId, { text: '⛔ Command hii ni ya owner tu' });
 
     const cfg = await loadConfig();
+    const cmd = args[0]?.toLowerCase();
 
-    if (!args.length) {
+    if (!cmd) {
         return sock.sendMessage(chatId, {
-            text: `📤 *Status Forward Control*\n\n` +
-                  `Hali ya sasa     : ${cfg.enabled ? '✅ INAFANYA KAZI' : '❌ IMEZIMWA'}\n` +
-                  `Inatuma kwa      : ${TARGET_JID || 'Inasubiri bot iunganishwe'}\n` +
-                  `Retry attempts   : ${cfg.retryAttempts}\n\n` +
-                  `Amri zinazopatikana:\n` +
-                  `  .statusforward on\n` +
-                  `  .statusforward off\n` +
-                  `  .statusforward status\n` +
-                  `  .statusforward restart`
+            text: `📊 *STATUS MANAGER (ALL ON)*\n\n` +
+                  `Forwarding : ${cfg.enabled ? '✅ ON' : '❌ OFF'}\n` +
+                  `Auto View  : ${cfg.autoRead ? '✅ ON' : '❌ OFF'}\n` +
+                  `Auto Like  : ${cfg.autoLike ? '✅ ON' : '❌ OFF'}\n` +
+                  `Like Emoji : ${cfg.likeEmoji}\n\n` +
+                  `*Amri za kuzima:* \n` +
+                  `.statusforward off (Zima zote)\n` +
+                  `.statusforward read (Zima/Washa View tu)\n` +
+                  `.statusforward like (Zima/Washa Like tu)`
         });
     }
-
-    const cmd = args[0].toLowerCase();
 
     if (cmd === 'on') {
-        await saveConfig({ enabled: true });
-        return sock.sendMessage(chatId, { text: '✅ Status forwarding imegeuzwa **ON**' });
+        await saveConfig({ enabled: true, autoRead: true, autoLike: true });
+        return sock.sendMessage(chatId, { text: '✅ Zote zimewashwa (Forward, View, Like).' });
     }
-
     if (cmd === 'off') {
-        await saveConfig({ enabled: false });
-        return sock.sendMessage(chatId, { text: '❌ Status forwarding imegeuzwa **OFF**' });
+        await saveConfig({ enabled: false, autoRead: false, autoLike: false });
+        return sock.sendMessage(chatId, { text: '❌ Zote zimezimwa.' });
+    }
+    if (cmd === 'read') {
+        const newState = !cfg.autoRead;
+        await saveConfig({ autoRead: newState });
+        return sock.sendMessage(chatId, { text: `👁️ Auto View sasa ni: ${newState ? 'ON' : 'OFF'}` });
+    }
+    if (cmd === 'like') {
+        const newState = !cfg.autoLike;
+        await saveConfig({ autoLike: newState });
+        return sock.sendMessage(chatId, { text: `❤️ Auto Like sasa ni: ${newState ? 'ON' : 'OFF'}` });
     }
 
-    if (cmd === 'status') {
-        return sock.sendMessage(chatId, {
-            text: `Hali ya sasa:\n\`\`\`${JSON.stringify(cfg, null, 2)}\`\`\`\n\nInatuma kwa: ${TARGET_JID || 'haijapatikana bado'}`
-        });
-    }
-
-    if (cmd === 'restart') {
-        processedStatusIds.clear();
-        configCache = null;
-        await loadConfig();
-        return sock.sendMessage(chatId, { text: '🔄 Status forward imerestartiwa\nCache imefutwa na config imesomwa upya' });
-    }
-
-    return sock.sendMessage(chatId, { text: 'Amri isiyojulikana. Tumia .statusforward' });
+    return sock.sendMessage(chatId, { text: 'Amri haieleweki.' });
 }
 
-// ────────────────────────────────────────────────
 module.exports = {
     statusForwardCommand,
     handleStatusForward
