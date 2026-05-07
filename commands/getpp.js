@@ -1,6 +1,5 @@
 async function getProfilePictureCommand(sock, chatId, msg) {
   try {
-    // Determine target JID: reply -> participant, mention -> first mentioned, else sender
     let targetJid = null;
 
     const ctx = msg.message?.extendedTextMessage?.contextInfo;
@@ -19,22 +18,32 @@ async function getProfilePictureCommand(sock, chatId, msg) {
 
     let ppUrl;
     try {
+      // Tunajaribu kupata picha ya wasifu
       ppUrl = await sock.profilePictureUrl(targetJid, 'image');
     } catch (e) {
-      ppUrl = 'https://i.imgur.com/2wzGhpF.jpeg';
+      // Ikishindikana (Privacy/No PP), tunatumia picha ya default
+      ppUrl = 'https://telegra.ph/file/0309995815610897f90e3.jpg'; 
     }
 
-    const caption = `📷 Profile picture of ${targetJid.split('@')[0]}`;
+    // FIX: Hakikisha ppUrl siyo undefined kabla ya kutuma
+    if (!ppUrl || ppUrl === undefined) {
+      ppUrl = 'https://telegra.ph/file/0309995815610897f90e3.jpg';
+    }
+
+    const caption = `📷 Profile picture of @${targetJid.split('@')[0]}`;
 
     await sock.sendMessage(chatId, {
-      image: { url: ppUrl },
+      image: { url: ppUrl }, // Sasa ni lazima iwe na URL halali
       caption: caption,
       mentions: [targetJid]
     }, { quoted: msg });
 
   } catch (error) {
-    console.error('Error in getpp command:', error);
-    try { await sock.sendMessage(chatId, { text: '❌ Failed to fetch profile picture.' }, { quoted: msg }); } catch (e) {}
+    // Hii inazuia bot ku-crash kabisa hata kukiwa na error ya Baileys
+    console.error('Error in getpp command:', error.message);
+    try { 
+      await sock.sendMessage(chatId, { text: '❌ Picha ya wasifu haikupatikana (Privacy Settings).' }, { quoted: msg }); 
+    } catch (e) {}
   }
 }
 
