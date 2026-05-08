@@ -1,9 +1,5 @@
-const { sendGiftedButtons } = require('gifted-btns');
 const axios = require('axios');
 const yts = require('yt-search');
-const ffmpeg = require('fluent-ffmpeg');
-const fs = require('fs');
-const path = require('path');
 
 const AXIOS_DEFAULTS = {
     timeout: 60000,
@@ -58,33 +54,8 @@ async function playCommand(sock, chatId, message) {
         const v = s?.videos?.[0];
         if (!v) return sock.sendMessage(chatId, { text: '❌ Sikuipata!' });
 
-        const buttons = [
-            {
-                name: "quick_reply",
-                buttonParamsJson: JSON.stringify({
-                    display_text: "🎵 MP3 AUDIO",
-                    id: `.getaudio ${v.url}`
-                })
-            },
-            {
-                name: "quick_reply",
-                buttonParamsJson: JSON.stringify({
-                    display_text: "🎥 MP4 VIDEO",
-                    id: `.getvideo ${v.url}`
-                })
-            }
-        ];
-
-        await sendGiftedButtons({
-            sock: sock,
-            chatId: chatId,
-            body: `🎬 *Title:* ${v.title}\n⏲️ *Duration:* ${v.timestamp}\n👤 *Author:* ${v.author.name}`,
-            footer: "Mickey Glitch",
-            title: "PLAY MENU",
-            media: { image: { url: v.thumbnail } },
-            buttons: buttons,
-            quoted: message
-        });
+        // Direct download MP3
+        await handleAudioDownload(sock, chatId, v.url, message);
 
     } catch (err) {
         console.error('[PLAY] Error:', err?.message || err);

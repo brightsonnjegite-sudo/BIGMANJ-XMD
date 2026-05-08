@@ -128,7 +128,6 @@ const { setGroupDescription, setGroupName, setGroupPhoto } = require('./commands
 const instagramCommand = require('./commands/instagram');
 const facebookCommand = require('./commands/facebook');
 const playCommand = require('./commands/play');
-const { handleAudioDownload: handlePlayAudioDownload, handleVideoDownload: handlePlayVideoDownload } = require('./commands/play');
 const tiktokCommand = require('./commands/tiktok');
 const aiCommand = require('./commands/ai');
 const aiVoiceCommand = require('./commands/ai');
@@ -138,7 +137,6 @@ const { handleTranslateCommand } = require('./commands/translate');
 const { addCommandReaction, handleAreactCommand } = require('./lib/reactions');
 const imagineCommand = require('./commands/imagine');
 const videoCommand = require('./commands/video');
-const { handleAudioDownload: handleVideoAudioDownload, handleVideoDownload: handleVideoVideoDownload } = require('./commands/video');
 const sudoCommand = require('./commands/sudo');
 
 const stickercropCommand = require('./commands/stickercrop');
@@ -1117,20 +1115,6 @@ async function handleMessages(sock, messageUpdate, printLog) {
 
             case userMessage.startsWith('.play') || userMessage.startsWith('.mp3') || userMessage.startsWith('.ytmp3') || userMessage.startsWith('.song'):
                 await playCommand(sock, chatId, message);
-                break;
-            case userMessage.startsWith('.getaudio'):
-                {
-                    const ytUrl = userMessage.slice(10).trim();
-                    if (ytUrl) await handlePlayAudioDownload(sock, chatId, ytUrl, message);
-                    else await sock.sendMessage(chatId, { text: 'Invalid YouTube URL' }, { quoted: message });
-                }
-                break;
-            case userMessage.startsWith('.getvideo'):
-                {
-                    const ytUrl = userMessage.slice(9).trim();
-                    if (ytUrl) await handlePlayVideoDownload(sock, chatId, ytUrl, message);
-                    else await sock.sendMessage(chatId, { text: 'Invalid YouTube URL' }, { quoted: message });
-                }
                 break;
             case userMessage.startsWith('.video') || userMessage.startsWith('.ytmp4'):
                 await videoCommand(sock, chatId, message);

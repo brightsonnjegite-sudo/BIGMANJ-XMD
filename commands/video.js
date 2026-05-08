@@ -1,4 +1,3 @@
-const { sendGiftedButtons } = require('gifted-btns');
 const axios = require('axios');
 const yts = require('yt-search');
 
@@ -42,7 +41,7 @@ async function getYoutubeMp4(ytUrl) {
     throw new Error('Keith MP4 API failed');
 }
 
-// Video Command - Shows buttons to choose format
+// Video Command - Direct download MP4
 async function videoCommand(sock, chatId, message) {
     try {
         const text = message.message?.conversation || message.message?.extendedTextMessage?.text || '';
@@ -53,45 +52,17 @@ async function videoCommand(sock, chatId, message) {
         await sock.sendMessage(chatId, { react: { text: '🔍', key: message.key } });
 
         // Search on YouTube
-        let vUrl, vTitle, vThumb;
+        let vUrl;
         if (q.startsWith('http')) {
             vUrl = q;
         } else {
             const { videos } = await yts(q);
             if (!videos?.[0]) return sock.sendMessage(chatId, { text: '❌ Sikuipata!' });
             vUrl = videos[0].url;
-            vTitle = videos[0].title;
-            vThumb = videos[0].thumbnail;
         }
 
-        // Create download format buttons
-        const buttons = [
-            {
-                name: "quick_reply",
-                buttonParamsJson: JSON.stringify({
-                    display_text: "🎥 MP4 VIDEO",
-                    id: `.getvideo ${vUrl}`
-                })
-            },
-            {
-                name: "quick_reply",
-                buttonParamsJson: JSON.stringify({
-                    display_text: "🎵 MP3 AUDIO",
-                    id: `.getaudio ${vUrl}`
-                })
-            }
-        ];
-
-        await sendGiftedButtons({
-            sock: sock,
-            chatId: chatId,
-            body: `🎬 *Title:* ${vTitle || 'YouTube Video'}\n\nChagua format unayotaka hapo chini:`,
-            footer: "Mickey Glitch",
-            title: "VIDEO DOWNLOADER",
-            media: { image: { url: vThumb } },
-            buttons: buttons,
-            quoted: message
-        });
+        // Direct download MP4
+        await handleVideoDownload(sock, chatId, vUrl, message);
 
     } catch (err) {
         console.error('[VIDEO] Error:', err?.message || err);
