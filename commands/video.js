@@ -10,7 +10,7 @@ const AXIOS_DEFAULTS = {
     }
 };
 
-// Function ya kujaribu API (Retries)
+// Retry mechanism for API requests
 async function tryRequest(getter, attempts = 3) {
     let lastErr;
     for (let i = 1; i <= attempts; i++) {
@@ -20,28 +20,39 @@ async function tryRequest(getter, attempts = 3) {
     throw lastErr;
 }
 
-// 1. MP4 Downloader kwa ajili ya JSON mpya ({ status, creator, result })
-async function getKeithVideoByUrl(ytUrl) {
+// Get MP3 from YouTube
+async function getYoutubeMp3(ytUrl) {
+    const api = `https://apiskeith.top/download/mp3?url=${encodeURIComponent(ytUrl)}`;
+    const res = await tryRequest(() => axios.get(api, AXIOS_DEFAULTS));
+    
+    if (res.data?.status && res.data?.result) {
+        return { download: res.data.result };
+    }
+    throw new Error('Keith MP3 API failed');
+}
+
+// Get MP4 from YouTube
+async function getYoutubeMp4(ytUrl) {
     const api = `https://apiskeith.top/download/mp4?url=${encodeURIComponent(ytUrl)}`;
     const res = await tryRequest(() => axios.get(api, AXIOS_DEFAULTS));
     
-    // Inasoma muundo: { "status": true, "result": "https://..." }
     if (res.data?.status && res.data?.result) {
         return { download: res.data.result };
     }
     throw new Error('Keith MP4 API failed');
 }
 
-// Main Video Command
-async function videoCommand(sock, chatId, message, args) {
+// Video Command - Shows buttons to choose format
+async function videoCommand(sock, chatId, message) {
     try {
-        const q = Array.isArray(args) ? args.join(' ') : (message.message?.conversation || message.message?.extendedTextMessage?.text || "").split(' ').slice(1).join(' ').trim();
+        const text = message.message?.conversation || message.message?.extendedTextMessage?.text || '';
+        const q = text.split(' ').slice(1).join(' ').trim();
 
         if (!q) return sock.sendMessage(chatId, { text: 'Unataka video gani?' });
 
         await sock.sendMessage(chatId, { react: { text: '🔍', key: message.key } });
 
-        // Tafuta YouTube
+        // Search on YouTube
         let vUrl, vTitle, vThumb;
         if (q.startsWith('http')) {
             vUrl = q;
@@ -53,7 +64,7 @@ async function videoCommand(sock, chatId, message, args) {
             vThumb = videos[0].thumbnail;
         }
 
-        // Tuma Button ya kuchagua (Gifted-btns)
+        // Create download format buttons
         const buttons = [
             {
                 name: "quick_reply",
@@ -83,18 +94,36 @@ async function videoCommand(sock, chatId, message, args) {
         });
 
     } catch (err) {
-        console.error('[VIDEO] Error:', err.message);
+        console.error('[VIDEO] Error:', err?.message || err);
         sock.sendMessage(chatId, { text: '❌ Hitilafu: ' + err.message });
     }
 }
 
-// Function ya kudownload na kutuma (Iite hii kwenye handler yako ya buttons)
-async function handleVideoDownload(sock, chatId, vUrl, message) {
+// Handle audio download (called from button response in main.js)
+async function handleAudioDownload(sock, chatId, ytUrl, message) {
     try {
         await sock.sendMessage(chatId, { react: { text: '📥', key: message.key } });
         
-        // Jaribu API ya JSON mpya tuliyoboresha
-        const data = await getKeithVideoByUrl(vUrl);
+        const data = await getYoutubeMp3(ytUrl);
+        
+        await sock.sendMessage(chatId, {
+            audio: { url: data.download },
+            mimetype: 'audio/mp4',
+            ptt: false
+        }, { quoted: message });
+
+        await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } });
+    } catch (e) {
+        await sock.sendMessage(chatId, { text: "❌ Download imefeli: " + e.message }, { quoted: message });
+    }
+}
+
+// Handle video download (called from button response in main.js)
+async function handleVideoDownload(sock, chatId, ytUrl, message) {
+    try {
+        await sock.sendMessage(chatId, { react: { text: '📥', key: message.key } });
+        
+        const data = await getYoutubeMp4(ytUrl);
         
         await sock.sendMessage(chatId, {
             video: { url: data.download },
@@ -104,8 +133,12 @@ async function handleVideoDownload(sock, chatId, vUrl, message) {
 
         await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } });
     } catch (e) {
-        sock.sendMessage(chatId, { text: "❌ Download imefeli: " + e.message });
+        await sock.sendMessage(chatId, { text: "❌ Download imefeli: " + e.message }, { quoted: message });
     }
 }
 
-module.exports = { videoCommand, getKeithVideoByUrl, handleVideoDownload };
+module.exports = videoCommand;
+module.exports.handleAudioDownload = handleAudioDownload;
+module.exports.handleVideoDownload = handleVideoDownload;
+module.exports.getYoutubeMp3 = getYoutubeMp3;
+module.exports.getYoutubeMp4 = getYoutubeMp4;
