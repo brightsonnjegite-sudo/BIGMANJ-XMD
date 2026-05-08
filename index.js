@@ -21,7 +21,7 @@ const {
 
 const { handleMessages, handleGroupParticipantUpdate, handleStatus } = require("./main");
 const { handleAnticall } = require("./commands/anticall");
-const { getButtonId } = require("./lib/buttonLoader");
+const { getButtonId, isButtonResponse, autoDetectButtonCommand, isCommandId } = require("./lib/buttonLoader");
 const store = require("./lib/lightweight_store");
 const settings = require("./settings");
 
@@ -128,49 +128,37 @@ async function startMickeyBot() {
                 const mek = chatUpdate.messages[0];
                 if (!mek?.message) return;
 
-                // Handle status updates
+                // 🔘 Button & List Handler - Detect any button ID
+                if (isButtonResponse(mek)) {
+                    const buttonId = getButtonId(mek);
+                    if (buttonId) {
+                        console.log(chalk.cyan(`🔘 Button/List Response: ${buttonId}`));
+                        
+                        // Check if button is a command (starts with .)
+                        if (isCommandId(buttonId)) {
+                            // Auto-detect and convert to command for main handler
+                            const command = autoDetectButtonCommand(mek);
+                            if (command) {
+                                // Inject command into message for handling
+                                mek.message.conversation = command;
+                                mek.message.extendedTextMessage = null;
+                                await handleMessages(Mickey, chatUpdate, true);
+                                return;
+                            }
+                        } else {
+                            // Static button handlers (handle any ID dynamically)
+                            console.log(chalk.green(`✅ Button handler triggered for ID: ${buttonId}`));
+                            // Button handlers can be extended here for custom logic
+                        }
+                    }
+                }
+
+                // Status updates
                 if (mek.key?.remoteJid === "status@broadcast") {
                     await handleStatus(Mickey, chatUpdate);
                     return;
                 }
-
-                // Handle button clicks (any ID from buttonLoader)
-                const buttonId = getButtonId(mek);
-                if (buttonId) {
-                    console.log(chalk.cyan('🔘 Button pressed:'), chalk.yellow(buttonId));
-                    
-                    // If button ID is a command (starts with .), pass as message
-                    if (buttonId.startsWith('.')) {
-                        // Create a fake message from button ID
-                        const fakeMessage = {
-                            ...chatUpdate,
-                            messages: [{
-                                ...mek,
-                                message: {
-                                    conversation: buttonId
-                                }
-                            }]
-                        };
-                        await handleMessages(Mickey, fakeMessage, true);
-                        return;
-                    }
-                    
-                    // For static button IDs, still pass to handleMessages
-                    // so it can be processed by predefined handlers in main.js
-                    const fakeMessage = {
-                        ...chatUpdate,
-                        messages: [{
-                            ...mek,
-                            message: {
-                                conversation: buttonId
-                            }
-                        }]
-                    };
-                    await handleMessages(Mickey, fakeMessage, true);
-                    return;
-                }
-
-                // Handle regular messages
+                
                 await handleMessages(Mickey, chatUpdate, true);
             } catch (err) {
                 if (!err.message?.includes("No session found") && 
