@@ -102,4 +102,4 @@ async function handleDownload(sock, chatId, vUrl, type) {
     }
 }
 
-module.exports = { videoCommand, getVideoUrl, handleDownload };
+module.exports = { videocommand, getVideoUrl, handleDownload };
