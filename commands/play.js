@@ -29,16 +29,34 @@ async function tryRequest(getter, attempts = 3) {
 // Get MP3 from YouTube with enhanced error handling
 async function getYoutubeMp3(ytUrl) {
     const apis = [
-        `https://eliteprotech-apis.zone.id/ytmp3?url=${encodeURIComponent(ytUrl)}`,
-        `https://apiskeith.top/download/ytmp3?url=${encodeURIComponent(ytUrl)}`,
-        `https://apiskeith.top/download/ytv2?url=${encodeURIComponent(ytUrl)}`
+        `https://apiskeith.top/download/mp3?url=${encodeURIComponent(ytUrl)}`,
+        `https://api.davidcyriltech.my.id/download/ytmp3?url=${encodeURIComponent(ytUrl)}`,
+        `https://api.giftedtech.my.id/api/download/ytmp3?url=${encodeURIComponent(ytUrl)}`
     ];
 
     for (const api of apis) {
         try {
             const res = await tryRequest(() => axios.get(api, AXIOS_DEFAULTS));
+
+            // Handle different API response structures
+            let downloadUrl = null;
             if (res.data?.status && res.data?.result) {
-                return { download: res.data.result };
+                // Check if result is a string URL or an object
+                if (typeof res.data.result === 'string') {
+                    downloadUrl = res.data.result;
+                } else if (typeof res.data.result === 'object' && res.data.result?.url) {
+                    downloadUrl = res.data.result.url;
+                } else if (typeof res.data.result === 'object' && res.data.result?.download) {
+                    downloadUrl = res.data.result.download;
+                }
+            } else if (res.data?.url) {
+                downloadUrl = res.data.url;
+            } else if (res.data?.download) {
+                downloadUrl = res.data.download;
+            }
+
+            if (downloadUrl && typeof downloadUrl === 'string') {
+                return { download: downloadUrl };
             }
         } catch (err) {
             console.log(`API ${api} failed, trying next...`);
@@ -46,28 +64,6 @@ async function getYoutubeMp3(ytUrl) {
         }
     }
     throw new Error('All MP3 APIs failed');
-}
-
-// Get MP4 from YouTube with enhanced error handling
-async function getYoutubeMp4(ytUrl) {
-    const apis = [
-        `https://apiskeith.top/download/mp4?url=${encodeURIComponent(ytUrl)}`,
-        `https://api.davidcyriltech.my.id/download/ytmp4?url=${encodeURIComponent(ytUrl)}`,
-        `https://api.giftedtech.my.id/api/download/ytmp4?url=${encodeURIComponent(ytUrl)}`
-    ];
-
-    for (const api of apis) {
-        try {
-            const res = await tryRequest(() => axios.get(api, AXIOS_DEFAULTS));
-            if (res.data?.status && res.data?.result) {
-                return { download: res.data.result };
-            }
-        } catch (err) {
-            console.log(`API ${api} failed, trying next...`);
-            continue;
-        }
-    }
-    throw new Error('All MP4 APIs failed');
 }
 
 async function playCommand(sock, chatId, message) {
@@ -144,48 +140,9 @@ async function handleAudioDownload(sock, chatId, ytUrl, message, videoInfo = nul
     }
 }
 
-// Enhanced video download with thumbnail integration
-async function handleVideoDownload(sock, chatId, ytUrl, message, videoInfo = null) {
-    try {
-        await sock.sendMessage(chatId, { react: { text: '📥', key: message.key } });
-
-        const data = await getYoutubeMp4(ytUrl);
-
-        // Send video with enhanced metadata
-        const videoMessage = {
-            video: { url: data.download },
-            mimetype: 'video/mp4',
-            caption: videoInfo ? `✅ *${videoInfo.title}*\n> *Mickey Glitch*` : `✅ Tayari!\n> *Mickey Glitch*`,
-            fileName: videoInfo?.title ? `${videoInfo.title}.mp4` : 'video.mp4'
-        };
-
-        // Add context info if available
-        if (videoInfo) {
-            videoMessage.contextInfo = {
-                externalAdReply: {
-                    title: videoInfo.title,
-                    body: `👤 ${videoInfo.author.name}`,
-                    thumbnailUrl: videoInfo.thumbnail,
-                    sourceUrl: ytUrl,
-                    mediaType: 2,
-                    showAdAttribution: true
-                }
-            };
-        }
-
-        await sock.sendMessage(chatId, videoMessage, { quoted: message });
-
-        await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } });
-
-    } catch (e) {
-        console.error('Video download error:', e);
-        await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
-        await sock.sendMessage(chatId, { text: "❌ *Download imefeli:* " + (e.message || 'API haipatikani') }, { quoted: message });
     }
 }
 
 module.exports = playCommand;
 module.exports.handleAudioDownload = handleAudioDownload;
-module.exports.handleVideoDownload = handleVideoDownload;
 module.exports.getYoutubeMp3 = getYoutubeMp3;
-module.exports.getYoutubeMp4 = getYoutubeMp4;
