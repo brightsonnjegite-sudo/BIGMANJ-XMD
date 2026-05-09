@@ -29,9 +29,9 @@ async function tryRequest(getter, attempts = 3) {
 // Get MP3 from YouTube with enhanced error handling
 async function getYoutubeMp3(ytUrl) {
     const apis = [
-        `https://apiskeith.top/download/mp3?url=${encodeURIComponent(ytUrl)}`,
-        `https://api.davidcyriltech.my.id/download/ytmp3?url=${encodeURIComponent(ytUrl)}`,
-        `https://api.giftedtech.my.id/api/download/ytmp3?url=${encodeURIComponent(ytUrl)}`
+        `https://eliteprotech-apis.zone.id/ytmp3?url=${encodeURIComponent(ytUrl)}`,
+        `https://apiskeith.top/download/ytmp3?url=${encodeURIComponent(ytUrl)}`,
+        `https://apiskeith.top/download/ytv2?url=${encodeURIComponent(ytUrl)}`
     ];
 
     for (const api of apis) {
