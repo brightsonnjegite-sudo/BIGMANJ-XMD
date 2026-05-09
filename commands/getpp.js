@@ -1,10 +1,9 @@
 const { downloadMediaMessage, delay } = require('@whiskeysockets/baileys');
 
-// Cache ya picha zilizopatikana ili kupunguza requests
 const ppCache = new Map();
 
 /**
- * Command ya kupata profile picture kwa usalama na uhakika zaidi
+ * Command ya kupata profile picture
  */
 async function getProfilePictureCommand(sock, chatId, msg) {
   try {
@@ -14,7 +13,6 @@ async function getProfilePictureCommand(sock, chatId, msg) {
 
     let targetJids = [];
 
-    // Target Identification
     if (ctx?.mentionedJid?.length > 0) {
       targetJids = ctx.mentionedJid;
     } else if (ctx?.participant) {
@@ -25,10 +23,9 @@ async function getProfilePictureCommand(sock, chatId, msg) {
       targetJids = [msg.key.participant || msg.key.remoteJid];
     }
 
-    // Process kila JID
     for (const jid of targetJids.slice(0, 5)) {
       await sendEnhancedPP(sock, chatId, jid, msg);
-      await delay(1500); // Subiri kidogo kuzuia rate limit
+      await delay(1500);
     }
 
   } catch (error) {
@@ -38,7 +35,7 @@ async function getProfilePictureCommand(sock, chatId, msg) {
 }
 
 /**
- * Safe fetch ya profile picture na timeout
+ * Safe fetch na timeout
  */
 async function safeProfilePictureUrl(sock, jid, quality = 'image') {
   try {
@@ -53,34 +50,35 @@ async function safeProfilePictureUrl(sock, jid, quality = 'image') {
 }
 
 /**
- * Function kuu ya kutuma picha yenye fallback + caching
+ * Kutuma picha yenye fallback + API detection
  */
 async function sendEnhancedPP(sock, chatId, targetJid, quotedMsg) {
   let ppUrl;
   let statusMsg = "";
 
   try {
-    // Angalia kama iko cached
     if (ppCache.has(targetJid)) {
       ppUrl = ppCache.get(targetJid);
       statusMsg = "♻️ Cached Result";
     } else {
-      // Jaribu HD
       ppUrl = await safeProfilePictureUrl(sock, targetJid, 'image');
       if (ppUrl) {
         statusMsg = "✅ HD Quality";
       } else {
-        // Jaribu preview
         ppUrl = await safeProfilePictureUrl(sock, targetJid, 'preview');
         if (ppUrl) {
           statusMsg = "⚠️ Standard Quality (HD Restricted)";
         } else {
-          // Hakuna kabisa
+          // Hakikisha namba ipo WhatsApp
+          const exists = await sock.onWhatsApp(targetJid);
+          if (exists?.[0]?.exists) {
+            statusMsg = "❌ API Failed (DP exists but not fetched)";
+          } else {
+            statusMsg = "❌ No DP or Privacy Restricted";
+          }
           ppUrl = "https://ui-avatars.com/api/?name=No+DP&background=random&size=512";
-          statusMsg = "❌ Privacy Restricted / No Bio Picture";
         }
       }
-      // Hifadhi kwenye cache
       ppCache.set(targetJid, ppUrl);
     }
 
