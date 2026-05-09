@@ -1,64 +1,106 @@
 const axios = require('axios');
+const { downloadMediaMessage } = require('@whiskeysockets/baileys');
 
 /**
+ * Get profile picture command - Enhanced with WhiskeySockets Baileys
  * @param {Object} sock - Baileys socket instance
  * @param {Object} m - Message object
- * @param {Array} args - Arguments
+ * @param {Array} args - Command arguments
  */
 const getProfilePictureCommand = async (sock, m, args) => {
-    // 1. Check kama 'm' au 'm.key' zipo (Safety check)
-    if (!m || !m.key) {
-        console.error("Error: Message object 'm' is undefined.");
-        return;
-    }
-
-    const sender = m.key.remoteJid;
-
     try {
-        // 2. Tambua mlengwa (Identify target)
-        let target;
-        
-        // Check mentions
-        const mentioned = m.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0];
-        // Check kama ni reply kwa mtu
-        const quoted = m.message?.extendedTextMessage?.contextInfo?.participant;
-
-        if (mentioned) {
-            target = mentioned;
-        } else if (quoted) {
-            target = quoted;
-        } else if (args && args[0]) {
-            // Safisha namba na ongeza suffix
-            let num = args[0].replace(/[^0-9]/g, '');
-            target = num + '@s.whatsapp.net';
-        } else {
-            target = sender;
+        // Validate message object
+        if (!m || !m.key || !m.key.remoteJid) {
+            console.error("Error: Invalid message object");
+            return;
         }
 
-        // 3. Pata PP URL
-        let ppUrl;
+        const chatId = m.key.remoteJid;
+        const sender = m.key.participant || m.key.remoteJid;
+
+        // Determine target user
+        let target = sender; // Default to sender
+
+        // Check for mentions in the message
+        const mentionedJids = m.message?.extendedTextMessage?.contextInfo?.mentionedJid;
+        if (mentionedJids && mentionedJids.length > 0) {
+            target = mentionedJids[0];
+        }
+
+        // Check for quoted message (reply to someone)
+        const quotedParticipant = m.message?.extendedTextMessage?.contextInfo?.participant;
+        if (quotedParticipant) {
+            target = quotedParticipant;
+        }
+
+        // Check for phone number in args
+        if (args && args.length > 0 && args[0]) {
+            const phoneNumber = args[0].replace(/[^0-9]/g, '');
+            if (phoneNumber) {
+                target = phoneNumber + '@s.whatsapp.net';
+            }
+        }
+
+        // Validate target format
+        if (!target || !target.includes('@s.whatsapp.net')) {
+            return await sock.sendMessage(chatId, {
+                text: '❌ *Invalid target!*\n\nUsage: `.getpp` (your own)\n`.getpp @mention`\n`.getpp 255xxxxxxxxx`'
+            }, { quoted: m });
+        }
+
+        // Attempt to get profile picture URL
+        let profileUrl;
         try {
-            ppUrl = await sock.profilePictureUrl(target, 'image');
-        } catch (e) {
-            return await sock.sendMessage(sender, { text: '❌ Mtumiaji hana picha au privacy imebana.' }, { quoted: m });
+            profileUrl = await sock.profilePictureUrl(target, 'image');
+        } catch (error) {
+            console.error('Profile picture fetch error:', error);
+            return await sock.sendMessage(chatId, {
+                text: `❌ *Profile picture not available*\n\nThe user may have privacy settings enabled or no profile picture set.`
+            }, { quoted: m });
         }
 
-        // 4. Download na Tuma (Download & Send)
-        const response = await axios.get(ppUrl, { responseType: 'arraybuffer' });
-        
-        await sock.sendMessage(sender, { 
-            image: Buffer.from(response.data), 
-            caption: `✅ PP ya @${target.split('@')[0]} imepatikana.`,
+        // Download the image using axios with proper headers
+        const response = await axios.get(profileUrl, {
+            responseType: 'arraybuffer',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            },
+            timeout: 30000 // 30 second timeout
+        });
+
+        // Validate response
+        if (!response.data || response.data.length === 0) {
+            return await sock.sendMessage(chatId, {
+                text: '❌ *Failed to download profile picture*'
+            }, { quoted: m });
+        }
+
+        // Get target info for caption
+        const targetNumber = target.split('@')[0];
+        const isOwn = target === sender;
+
+        // Send the profile picture
+        await sock.sendMessage(chatId, {
+            image: Buffer.from(response.data),
+            caption: `✅ *Profile Picture ${isOwn ? '(Yours)' : ''}*\n\n👤 *User:* @${targetNumber}\n📏 *Size:* ${(response.data.length / 1024).toFixed(2)} KB`,
             mentions: [target]
         }, { quoted: m });
 
-    } catch (err) {
-        console.error('❌ Failed to process command:', err.message);
-        // Hakikisha sender yupo kabla ya kutuma error message
-        if (sender) {
-            await sock.sendMessage(sender, { text: '⚠️ Hitilafu imetokea wakati wa kupata picha.' });
+    } catch (error) {
+        console.error('GetPP Command Error:', error);
+
+        // Send error message
+        try {
+            await sock.sendMessage(m.key.remoteJid, {
+                text: `❌ *Error occurred while fetching profile picture*\n\n${error.message || 'Unknown error'}`
+            }, { quoted: m });
+        } catch (sendError) {
+            console.error('Failed to send error message:', sendError);
         }
     }
 };
 
 module.exports = getProfilePictureCommand;
+module.exports.name = 'getpp';
+module.exports.category = 'UTILITY';
+module.exports.description = 'Get profile picture of yourself or mentioned user';

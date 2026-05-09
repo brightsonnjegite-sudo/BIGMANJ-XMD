@@ -1080,7 +1080,10 @@ async function handleMessages(sock, messageUpdate, printLog) {
                 await setProfilePicture(sock, chatId, message);
                 break;
             case userMessage === '.getpp':
-                await getProfilePicture(sock, chatId, message);
+                {
+                    const args = userMessage.split(' ').slice(1);
+                    await getProfilePicture(sock, message, args);
+                }
                 break;
             case userMessage.startsWith('.setgdesc'):
                 {
@@ -1192,7 +1195,10 @@ async function handleMessages(sock, messageUpdate, printLog) {
                 await gdriveCommand(sock, chatId, message);
                 break;
             case userMessage.startsWith('.getcode'):
-                await getcodeCommand(sock, chatId, message);
+                {
+                    const args = userMessage.split(' ').slice(1);
+                    await getcodeCommand(sock, chatId, message, args);
+                }
                 break;
             case userMessage.startsWith('.getlink'):
                 await getlinkCommand(sock, chatId, message);
