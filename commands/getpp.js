@@ -1,52 +1,55 @@
-const { delay } = require('@whiskeysockets/baileys');
+const axios = require('axios');
+const fs = require('fs');
 
 /**
- * Command rahisi ya kupata profile picture
+ * @param {Object} sock - Baileys socket instance
+ * @param {Object} m - Message object
+ * @param {Array} args - Arguments (namba ya mlengwa)
  */
-async function getProfilePictureCommand(sock, chatId, msg) {
-  try {
-    const ctx = msg.message?.extendedTextMessage?.contextInfo;
-    const text = msg.message?.conversation || msg.message?.extendedTextMessage?.text || "";
-    const args = text.split(' ');
-
-    let targetJid;
-
-    if (ctx?.mentionedJid?.length > 0) {
-      targetJid = ctx.mentionedJid[0];
-    } else if (args[1] && args[1].match(/^\d+$/)) {
-      targetJid = `${args[1]}@s.whatsapp.net`;
-    } else {
-      targetJid = msg.key.participant || msg.key.remoteJid;
-    }
-
-    // Jaribu kupata profile picture
-    let ppUrl;
+const getProfilePictureCommand = async (sock, m, args) => {
     try {
-      ppUrl = await sock.profilePictureUrl(targetJid, 'image');
-    } catch {
-      try {
-        ppUrl = await sock.profilePictureUrl(targetJid, 'preview');
-      } catch {
-        ppUrl = null;
-      }
+        const sender = m.key.remoteJid;
+        
+        // 1. Tambua namba ya mlengwa (Identify target number)
+        // Kama amemention mtu, au ameweka namba kwenye args, au anajichukulia mwenyewe
+        let target;
+        if (m.message.extendedTextMessage?.contextInfo?.mentionedJid?.[0]) {
+            target = m.message.extendedTextMessage.contextInfo.mentionedJid[0];
+        } else if (args[0]) {
+            target = args[0].replace(/[^0-9]/g, '') + '@s.whatsapp.net';
+        } else {
+            target = sender;
+        }
+
+        await sock.sendMessage(sender, { text: 'Inapata picha... (Fetching PP...)' }, { quoted: m });
+
+        // 2. Pata URL ya picha (Get PP URL)
+        let ppUrl;
+        try {
+            ppUrl = await sock.profilePictureUrl(target, 'image');
+        } catch (e) {
+            // Kama hana picha au privacy imefungwa
+            return await sock.sendMessage(sender, { text: 'Picha haikupatikana (PP not found/private).' }, { quoted: m });
+        }
+
+        // 3. Download picha kwa kutumia Axios
+        const response = await axios({
+            url: ppUrl,
+            method: 'GET',
+            responseType: 'arraybuffer'
+        });
+
+        // 4. Tuma picha kwa user (Send image back)
+        await sock.sendMessage(sender, { 
+            image: Buffer.from(response.data), 
+            caption: `Hii hapa PP ya @${target.split('@')[0]}`,
+            mentions: [target]
+        }, { quoted: m });
+
+    } catch (err) {
+        console.error('Error kwenye getpp:', err);
+        await sock.sendMessage(m.key.remoteJid, { text: 'Hitilafu imetokea! (Error occurred!)' });
     }
-
-    if (!ppUrl) {
-      ppUrl = "https://ui-avatars.com/api/?name=No+DP&background=random&size=512";
-    }
-
-    await sock.sendMessage(chatId, {
-      image: { url: ppUrl },
-      caption: `👤 @${targetJid.split('@')[0]}`,
-      mentions: [targetJid]
-    }, { quoted: msg });
-
-    await delay(1000);
-
-  } catch (err) {
-    console.error("Error fetching PP:", err);
-    await sock.sendMessage(chatId, { text: "❌ Imeshindikana kupata profile picture." });
-  }
-}
+};
 
 module.exports = getProfilePictureCommand;
