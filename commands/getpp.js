@@ -1,7 +1,10 @@
 const { downloadMediaMessage, delay } = require('@whiskeysockets/baileys');
 
+// Cache ya picha zilizopatikana ili kupunguza requests
+const ppCache = new Map();
+
 /**
- * Pata picha ya profile kwa usalama na uhakika zaidi
+ * Command ya kupata profile picture kwa usalama na uhakika zaidi
  */
 async function getProfilePictureCommand(sock, chatId, msg) {
   try {
@@ -10,8 +13,8 @@ async function getProfilePictureCommand(sock, chatId, msg) {
     const ctx = msg.message?.extendedTextMessage?.contextInfo;
 
     let targetJids = [];
-    
-    // 1. Tambua nani anatafutwa (Target Identification)
+
+    // Target Identification
     if (ctx?.mentionedJid?.length > 0) {
       targetJids = ctx.mentionedJid;
     } else if (ctx?.participant) {
@@ -19,14 +22,13 @@ async function getProfilePictureCommand(sock, chatId, msg) {
     } else if (args[1] && args[1].match(/^\d+$/)) {
       targetJids = [`${args[1]}@s.whatsapp.net`];
     } else {
-      // Kama hakuna tag, chukua picha ya aliyetuma msg
       targetJids = [msg.key.participant || msg.key.remoteJid];
     }
 
-    // 2. Process kila JID kwa umakini
-    for (const jid of targetJids.slice(0, 5)) { // Limit to 5 for safety
+    // Process kila JID
+    for (const jid of targetJids.slice(0, 5)) {
       await sendEnhancedPP(sock, chatId, jid, msg);
-      await delay(1500); // Subiri sekunde 1.5 kuzuia rate limit
+      await delay(1500); // Subiri kidogo kuzuia rate limit
     }
 
   } catch (error) {
@@ -36,33 +38,50 @@ async function getProfilePictureCommand(sock, chatId, msg) {
 }
 
 /**
- * Function kuu ya kutuma picha yenye Fallback Logic
+ * Safe fetch ya profile picture na timeout
+ */
+async function safeProfilePictureUrl(sock, jid, quality = 'image') {
+  try {
+    return await Promise.race([
+      sock.profilePictureUrl(jid, quality),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+    ]);
+  } catch (err) {
+    console.log(`Failed to fetch ${quality} for ${jid}:`, err.message);
+    return null;
+  }
+}
+
+/**
+ * Function kuu ya kutuma picha yenye fallback + caching
  */
 async function sendEnhancedPP(sock, chatId, targetJid, quotedMsg) {
   let ppUrl;
   let statusMsg = "";
 
   try {
-    // JARIBIO LA 1: Picha ya HD (High Quality)
-    try {
-      ppUrl = await sock.profilePictureUrl(targetJid, 'image');
-      statusMsg = "✅ HD Quality";
-    } catch (e) {
-      // JARIBIO LA 2: Picha ya kawaida (Preview/Thumbnail)
-      // Mara nyingi picha inakataa HD lakini preview ipo
-      try {
-        ppUrl = await sock.profilePictureUrl(targetJid, 'preview');
-        statusMsg = "⚠️ Standard Quality (HD Restricted)";
-      } catch (e2) {
-        ppUrl = null;
+    // Angalia kama iko cached
+    if (ppCache.has(targetJid)) {
+      ppUrl = ppCache.get(targetJid);
+      statusMsg = "♻️ Cached Result";
+    } else {
+      // Jaribu HD
+      ppUrl = await safeProfilePictureUrl(sock, targetJid, 'image');
+      if (ppUrl) {
+        statusMsg = "✅ HD Quality";
+      } else {
+        // Jaribu preview
+        ppUrl = await safeProfilePictureUrl(sock, targetJid, 'preview');
+        if (ppUrl) {
+          statusMsg = "⚠️ Standard Quality (HD Restricted)";
+        } else {
+          // Hakuna kabisa
+          ppUrl = "https://ui-avatars.com/api/?name=No+DP&background=random&size=512";
+          statusMsg = "❌ Privacy Restricted / No Bio Picture";
+        }
       }
-    }
-
-    // 3. Kama picha haipatikani kabisa (Privacy au No PP)
-    if (!ppUrl) {
-      // Default placeholder kama picha imefichwa kabisa
-      ppUrl = "https://ui-avatars.com/api/?name=No+DP&background=random&size=512";
-      statusMsg = "❌ Privacy Restricted / No Bio Picture";
+      // Hifadhi kwenye cache
+      ppCache.set(targetJid, ppUrl);
     }
 
     const name = await getUserName(sock, targetJid);
@@ -80,17 +99,18 @@ async function sendEnhancedPP(sock, chatId, targetJid, quotedMsg) {
 
   } catch (err) {
     console.log("Final Fallback Error:", err);
+    await sock.sendMessage(chatId, { text: "⚠️ Imeshindikana kupata profile picture." });
   }
 }
 
 /**
- * Pata jina la mtumiaji kutoka store au metadata
+ * Pata jina la mtumiaji
  */
 async function getUserName(sock, jid) {
   try {
     const contact = sock.store?.contacts?.[jid];
     if (contact?.name || contact?.notify) return contact.name || contact.notify;
-    
+
     if (jid.endsWith('@g.us')) {
       const meta = await sock.groupMetadata(jid);
       return meta.subject;
