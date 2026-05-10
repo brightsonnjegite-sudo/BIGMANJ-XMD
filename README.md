@@ -1,85 +1,73 @@
-##  ᴍɪᴄᴋᴇʏ ɢʟɪᴛʜ ᴘʀᴇᴍɪᴜᴍ ʙᴏᴛ
+# Welcome to your Lovable project
 
-<img src="https://files.catbox.moe/x3wl8n.jpg" width="80" align="right"/>
+## Project info
 
-Get your **ᴍɪᴄᴋᴇʏ ɢʟɪᴛʜ ** running in seconds with exclusive, high-speed deployment options used by pro developers worldwide.
+**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
 
-### Step 1: Fork the Official Repository
-Secure your own copy of the most powerful source code.
+## How can I edit this code?
 
-<div align="center">
-  <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-    <a href="https://github.com/Mickeydeveloper/Mickey-Glitch/fork">
-      <img src="https://img.shields.io/badge/🔗 FORK REPOSITORY-000000?style=for-the-badge&logo=github&logoColor=white" alt="Fork" style="height:52px;border-radius:8px;box-shadow:0 4px 10px rgba(0,0,0,0.12);"/>
-    </a>
-  </div>
-</div>
+There are several ways of editing your application.
 
-<br>
+**Use Lovable**
 
-### Step 2: Instant One-Click Deployment (Most Popular 🔥)
+Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
 
-Zero setup · 24/7 online · Lightning fast
+Changes made via Lovable will be committed automatically to this repo.
 
-<div align="center">
-  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
-    <a href="https://bot-hosting.net/?aff=1068419752923508776">
-      <img src="https://img.shields.io/badge/⚡ BOT HOSTING NET (Instant)-00C853?style=for-the-badge&logo=rocket&logoColor=white" alt="Deploy Instant" style="height:52px;border-radius:8px;box-shadow:0 4px 10px rgba(0,0,0,0.12);"/>
-    </a>
-    <a href="https://youtu.be/meE_EWEuyGk?si=gJxaiFZlEMluL1oB">
-      <img src="https://img.shields.io/badge/🎥 View Tutorial (YouTube)-FF0000?style=for-the-badge&logo=youtube&logoColor=white" alt="View Tutorial" style="height:52px;border-radius:8px;box-shadow:0 4px 10px rgba(0,0,0,0.12);"/>
-    </a>
-  </div>
-</div>
+**Use your preferred IDE**
 
-<br>
+If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
 
-### ⚡ Heroku Deploy
+The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
 
-Free deployment · Easy setup · Start a new app instantly
+Follow these steps:
 
-<div align="center">
-  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
-    <a href="https://dashboard.heroku.com/new-app" target="_blank">
-      <img src="https://img.shields.io/badge/⚡ HEROKU DEPLOY-430098?style=for-the-badge&logo=heroku&logoColor=white" alt="Heroku Deploy" style="height:52px;border-radius:8px;box-shadow:0 4px 10px rgba(0,0,0,0.12);"/>
-    </a>
-  </div>
-</div>
+```sh
+# Step 1: Clone the repository using the project's Git URL.
+git clone <YOUR_GIT_URL>
 
-<br>
+# Step 2: Navigate to the project directory.
+cd <YOUR_PROJECT_NAME>
 
-### 💎 Katabump Elite Panel (Private & Fastest)
+# Step 3: Install the necessary dependencies.
+npm i
 
-Only the real ones know about this panel 
+# Step 4: Start the development server with auto-reloading and an instant preview.
+npm run dev
+```
 
-<div align="center">
-  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
-    <a href="https://dashboard.katabump.com/auth/login#d6b7d6" target="_blank">
-      <img src="https://img.shields.io/badge/💎 KATABUMP ELITE - TAP-AA00FF?style=for-the-badge&logo=sparkles&logoColor=white" alt="Katabump" style="height:52px;border-radius:8px;box-shadow:0 4px 10px rgba(0,0,0,0.12);"/>
-    </a>
-  </div>
-</div>
+**Edit a file directly in GitHub**
 
-<br><br>
+- Navigate to the desired file(s).
+- Click the "Edit" button (pencil icon) at the top right of the file view.
+- Make your changes and commit the changes.
 
-### 🎁 Download Full Project ZIP (Offline Setup)
+**Use GitHub Codespaces**
 
-Want to run it locally or on your own server? Grab the complete package instantly!
+- Navigate to the main page of your repository.
+- Click on the "Code" button (green button) near the top right.
+- Select the "Codespaces" tab.
+- Click on "New codespace" to launch a new Codespace environment.
+- Edit files directly within the Codespace and commit and push your changes once you're done.
 
-<div align="center">
-  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;align-items:center">
-    <a href="https://github.com/Mickeydeveloper/Mickey-Glitch/archive/refs/heads/main.zip">
-      <img src="https://img.shields.io/badge/📦 DOWNLOAD HERE-FF3B30?style=for-the-badge&logo=dropbox&logoColor=white" alt="Download" style="height:52px;border-radius:8px;box-shadow:0 4px 10px rgba(0,0,0,0.12);"/>
-    </a>
-    <img src="https://water-billimg.onrender.com/1761205727440.png" width="200" style="border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.15);"/>
-  </div>
-</div>
+## What technologies are used for this project?
 
-<h4 align="center">ᴍᴇᴇᴛ ᴅᴇᴠᴇʟᴏᴘᴇʀ</h4>
+This project is built with:
 
-<p align="center">
-  <!-- ᴏᴡɴᴇʀ ɴᴜᴍʙᴇʀ -->
-  <a href="https://wa.me/255612130873">
-    <img src="https://raw.githubusercontent.com/shizothetechie/database/main/icon/WhatsApp.png" width="12%">
-  </a>
-</p>
+- Vite
+- TypeScript
+- React
+- shadcn-ui
+- Tailwind CSS
+
+## How can I deploy this project?
+
+Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+
+## Can I connect a custom domain to my Lovable project?
+
+Yes, you can!
+
+To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+
+Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
