@@ -388,7 +388,12 @@ async function handleMessages(sock, messageUpdate, printLog) {
         if (isGroup) {
             if (userMessage) {
                 await handleBadwordDetection(sock, chatId, message, userMessage, senderId);
-        await handleBotDetection(sock, chatId, message, userMessage, senderId);
+                await handleBotDetection(sock, chatId, message, userMessage, senderId);
+            }
+            // Antilink checks message text internally, so run it even if userMessage is empty
+            await Antilink(message, sock);
+        }
+
         // PM blocker: block non-owner DMs when enabled (do not ban)
         // Allow the owner or sudo users to bypass the PM blocker
         if (!isGroup && !message.key.fromMe && !senderIsOwnerOrSudo) {
