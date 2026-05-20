@@ -78,6 +78,25 @@ const question = (text) => {
     return Promise.resolve(settings.ownerNumber || "255615858685");
 };
 
+async function chooseStartupMode() {
+    const settingMode = settings.mode?.toLowerCase() === 'telegram' ? 'telegram' : 'whatsapp';
+    if (!rl) {
+        console.log(chalk.yellow(`⚠️ Terminal input unavailable, using settings.js mode: ${settingMode}`));
+        return settingMode;
+    }
+
+    console.log(chalk.bgBlue.white("\n  🚀  MICKEY GLITCH STARTUP MODE  🚀  \n"));
+    console.log('Chagua mode ya bot:');
+    console.log('  1) WhatsApp');
+    console.log('  2) Telegram');
+    console.log(`  3) Tumia mode ya settings.js (${settingMode})`);
+
+    const answer = (await question('Chagua (1/2/3) [3]: ')).trim();
+    if (answer === '1') return 'whatsapp';
+    if (answer === '2') return 'telegram';
+    return settingMode;
+}
+
 async function startMickeyBot() {
     try {
         console.log('\n' + chalk.bgBlue.white("  🚀  STARTING MICKEY GLITCH BOT  🚀  ") + '\n');
@@ -272,11 +291,15 @@ async function startMickeyBot() {
     }
 }
 
-console.log(chalk.bgBlue.white("  🚀  INITIALIZING MICKEY GLITCH  🚀  \n"));
-if (settings.mode && settings.mode.toLowerCase() === 'telegram') {
-  console.log(chalk.bgBlue.white("\n  🚀  STARTING TELEGRAM BOT  🚀  \n"));
-  startTelegramBot();
-} else {
-  console.log(chalk.bgBlue.white("\n  🚀  STARTING WHATSAPP CONNECTION  🚀  \n"));
-  startMickeyBot();
+async function initializeBot() {
+  const startupMode = await chooseStartupMode();
+  if (startupMode === 'telegram') {
+    console.log(chalk.bgBlue.white("\n  🚀  STARTING TELEGRAM BOT  🚀  \n"));
+    startTelegramBot();
+  } else {
+    console.log(chalk.bgBlue.white("\n  🚀  STARTING WHATSAPP CONNECTION  🚀  \n"));
+    startMickeyBot();
+  }
 }
+
+initializeBot();
