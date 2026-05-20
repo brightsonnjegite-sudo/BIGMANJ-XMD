@@ -212,9 +212,9 @@ async function handleUpdate(update) {
 👤 User: ${sender?.username || sender?.first_name || 'Unknown'}`);
     case '/alive':
     case '.alive':
-      return sendTelegramMessage(chatId, '✅ Bot iko mtandaoni.
+      return sendTelegramMessage(chatId, `✅ Bot iko mtandaoni.
 ✨ Mode: Telegram
-🔧 Imewezeshwa kupitia settings.js');
+🔧 Imewezeshwa kupitia settings.js`);
     case '/owner':
     case '.owner':
       return sendTelegramMessage(chatId, `👤 Bot Owner: ${settings.botOwner || 'Owner'}\n📱 WhatsApp: ${settings.ownerNumber ? `https://wa.me/${settings.ownerNumber}` : 'Not configured'}\n🟦 Telegram Owner ID: ${settings.telegram.ownerId || 'Not configured'}`);
