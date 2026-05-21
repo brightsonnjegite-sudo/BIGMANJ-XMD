@@ -18,7 +18,7 @@ const settings = {
   mode: "telegram", // "whatsapp" or "telegram"
   telegram: {
     botToken: "8018854420:AAFBgafzTMBzIQFEZRcUDGxxcdCDJQmxB90",
-    ownerId: "",
+    ownerId: "8188446621",
     pairCode: "MICKDADY"
   },
   commandMode: "public",
