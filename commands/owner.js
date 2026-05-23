@@ -2,7 +2,7 @@ const { sendInteractiveMessage } = require('gifted-btns');
 const settings = require('../settings');
 
 /**
- * ownerCommand - Mickey Glitch Bot Owner Info
+ * ownerCommand - 𝙱𝙸𝙶𝙼𝙰𝙽𝚓 Glitch Bot Owner Info
  * Version: Fixed 'key' undefined error
  */
 async function ownerCommand(sock, chatId, m, body = '') {
@@ -13,9 +13,9 @@ async function ownerCommand(sock, chatId, m, body = '') {
         }
 
         // 2. Data za Owner
-        const ownerNumberRaw = settings.ownerNumber || '255612130873';
-        const ownerName = settings.botOwner || 'Mickey Developer';
-        const botName = settings.botName || 'MICKEY GLITCH';
+        const ownerNumberRaw = settings.ownerNumber || '255777580820';
+        const ownerName = settings.botOwner || '𝙱𝙸𝙶𝙼𝙰𝙽𝚓 Developer';
+        const botName = settings.botName || '𝙱𝙸𝙶𝙼𝙰𝙽𝚓  GLITCH';
         
         const cleanNumber = ownerNumberRaw.replace(/[^\d]/g, '');
         const waLink = `https://wa.me/${cleanNumber}`;
