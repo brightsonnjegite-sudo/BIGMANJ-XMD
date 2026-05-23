@@ -330,12 +330,16 @@ async function handleShazamCommand(chatId, repliedMessage) {
             const title = song.title || 'Unknown';
             const artist = song.artists?.[0]?.name || 'Unknown';
 
-            const caption = `🎵 *SHAZAM IDENTIFIED!*\n` +
-                `━━━━━━━━━━━━━━━━━━━━━━\n` +
-                `📌 *Title:* ${title}\n` +
-                `👤 *Artist:* ${artist}\n` +
-                `💿 *Album:* ${song.album?.name || 'N/A'}\n` +
-                `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+ const caption = `🎵 *SHAZAM IDENTIFIED!*
+
+━━━━━━━━━━━━━━━━━━
+
+📌 *Title:* ${title}
+👤 *Artist:* ${artist}
+💿 *Album:* ${song.album?.name || 'N/A'}
+
+━━━━━━━━━━━━━━━━━━
+`;
                 `💡 _Unaweza kudownload kwa kuandika:_ \n`/play ${title} ${artist}`;
 
             // Tuma ujumbe ukiwa na Inline Button ya Telegram kwa urahisi
