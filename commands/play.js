@@ -72,7 +72,9 @@ async function playCommand(sock, chatId, message) {
         const text = message.message?.conversation || message.message?.extendedTextMessage?.text || '';
         const q = text.split(' ').slice(1).join(' ').trim();
 
-        if (!q) return sock.sendMessage(chatId, { text: '🎵 *Unataka wimbo gani?*\n\n📝 Mfano: `.play Darude Sandstorm`' });
+if (!q) return sock.sendMessage(chatId, {
+  text: '🎵 *Unataka wimbo gani?*\n\n📝 Mfano: `.play Darude Sandstorm`'
+}); 
 
         await sock.sendMessage(chatId, { react: { text: '🔍', key: message.key } });
 
