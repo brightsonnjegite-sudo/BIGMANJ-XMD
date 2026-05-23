@@ -4,7 +4,7 @@ const path = require('path');
 const { sendInteractiveMessage } = require('gifted-btns');
 
 /**
- * @project: MICKEY GLITCH V3.0.5
+ * @project: 𝙱𝙸𝙶𝙼𝙰𝙽𝚓 𝙶𝙻𝙸𝚃𝙲𝙷 V3.0.5
  * @author: Quantum Base Developer (TZ)
  * @description: Enhanced Menu - Manual command list grouped by categories
  */
@@ -177,7 +177,7 @@ const menuCommand = async (sock, chatId, m) => {
             text: helpText,
             contextInfo: {
                 externalAdReply: {
-                    title: "𝙼𝚒𝚌𝚔𝚎𝚢 𝙶𝚕𝚒𝚝𝚌𝚑 𝙼𝚎𝚗𝚞 𝚂𝚢𝚜𝚝𝚎𝚖",
+                    title: "𝙱𝙸𝙶𝙼𝙰𝙽𝚓 𝙶𝚕𝚒𝚝𝚌𝚑 𝙼𝚎𝚗𝚞 𝚂𝚢𝚜𝚝𝚎𝚖",
                     body: "𝙿𝚘𝚠𝚎𝚛𝚎𝚍 𝚋𝚢 𝚀𝚞𝚊𝚗𝚝𝚞𝚖 𝙲𝚘𝚍𝚎",
                     thumbnailUrl: 'https://water-billing-292n.onrender.com/1761205727440.png',
                     sourceUrl: 'https://whatsapp.com/channel/0029Vb6B9xFCxoAseuG1g610',
