@@ -3,6 +3,7 @@ const path = require('path');
 const axios = require('axios');
 const yts = require('yt-search'); 
 const settings = require('./settings');
+const { pairWhatsappAccount } = require('./index');
 const { exec } = require('child_process');
 const util = require('util');
 const execAsync = util.promisify(exec);
@@ -177,7 +178,7 @@ function canPair(chatId, code) {
 
   if (ownerId && String(chatId) === ownerId) return true;
   if (!inputCode) return false;
-  
+
   if (pairCode && inputCode === pairCode) return true;
   if (ownerNumber && inputCode === ownerNumber) return true;
 
@@ -276,7 +277,7 @@ async function handleUpdateCommand(chatId, isActiveOwner) {
 async function handleShazamCommand(chatId, repliedMessage) {
     const token = settings.telegram?.botToken?.trim();
     const media = repliedMessage.audio || repliedMessage.video || repliedMessage.voice;
-    
+
     if (!media || !media.file_id) {
         return sendTelegramMessage(chatId, '❌ *Tafadhali reply ujumbe wa audio au video kwa kutumia /shazam*');
     }
@@ -291,7 +292,7 @@ async function handleShazamCommand(chatId, repliedMessage) {
         // Pata file path kutoka Telegram Seva
         const fileRes = await axios.get(`${TELEGRAM_BASE_URL(token)}/getFile?file_id=${media.file_id}`);
         if (!fileRes.data?.ok) throw new Error("Mchakato wa kupata faili umefeli.");
-        
+
         const filePath = fileRes.data.result.file_path;
         const fileUrl = `https://api.telegram.org/file/bot${token}/${filePath}`;
 
@@ -330,17 +331,12 @@ async function handleShazamCommand(chatId, repliedMessage) {
             const title = song.title || 'Unknown';
             const artist = song.artists?.[0]?.name || 'Unknown';
 
- const caption = `🎵 *SHAZAM IDENTIFIED!*
-
-━━━━━━━━━━━━━━━━━━
-
-📌 *Title:* ${title}
-👤 *Artist:* ${artist}
-💿 *Album:* ${song.album?.name || 'N/A'}
-
-━━━━━━━━━━━━━━━━━━
-`;
- `💡 _Unaweza kudownload kwa kuandika:_ \n`/play ${title} ${artist}`;
+            const caption = `🎵 *SHAZAM IDENTIFIED!*\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `📌 *Title:* ${title}\n` +
+                `👤 *Artist:* ${artist}\n` +
+                `💿 *Album:* ${song.album?.name || 'N/A'}\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
 
             // Tuma ujumbe ukiwa na Inline Button ya Telegram kwa urahisi
             await sendTelegramMessage(chatId, caption, {
@@ -417,12 +413,27 @@ async function handleUpdate(update) {
     if (isChatAllowed(chatId) || isActiveOwner) {
       return sendTelegramMessage(chatId, '✅ Chat hii tayari imeshaunganishwa (Paired) na Mfumo wa Index.');
     }
+
     const code = args[0] || '';
     if (!canPair(chatId, code)) {
       return sendTelegramMessage(chatId, '❌ Pairing imekataa. Tumia code sahihi au namba ya mmiliki kutoka kwenye Index.');
     }
-    addAllowedChat(chatId);
-    return sendTelegramMessage(chatId, '✅ Bot imepairishwa kikamilifu kwenye index ya chat hii! Tumia /menu kuanza.');
+
+    try {
+      const result = await pairWhatsappAccount({
+        phoneNumber: settings.ownerNumber,
+        deviceName: settings.telegram?.pairCode || 'MICKDADY'
+      });
+
+      addAllowedChat(chatId);
+      const pairingMessage = result?.pairingCode
+        ? `✅ WhatsApp pairing imeanzishwa. Tumia code hii kwenye WhatsApp: ${result.pairingCode}`
+        : '✅ WhatsApp pairing imeanzishwa. Fungua WhatsApp na uingizie code inayotolewa kwenye terminal/console.';
+
+      return sendTelegramMessage(chatId, `${pairingMessage}\n\n✅ Bot imepairishwa kikamilifu kwenye index ya chat hii! Tumia /menu kuanza.`);
+    } catch (error) {
+      return sendTelegramMessage(chatId, `❌ Pairing ya WhatsApp imefeli: ${error.message}`);
+    }
   }
 
   if (commandText === 'unpair') {
