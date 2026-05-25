@@ -1,8 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 const fetch = require('node-fetch');
-// Kutumia npm ya gifted-btns kwa ajili ya button za kisasa
-const { sendButtons } = require('gifted-btns');
 
 // Paths za kuhifadhi data
 const STATE_PATH = path.join(__dirname, '..', 'data', 'chatbot.json');
@@ -56,7 +54,6 @@ function extractText(m) {
         if (!m || !m.message) return '';
         const msg = m.message;
         
-        // Inasoma text za kawaida na aina zote za button (kawaida, interactive, au zile za gifted-btns)
         return (
             msg.conversation || 
             msg.extendedTextMessage?.text || 
@@ -107,35 +104,17 @@ async function handleChatbotMessage(sock, chatId, m, userText = null) {
             .map(msg => `${msg.role === 'user' ? msg.name : 'Mickey'}: ${msg.content}`)
             .join("\n");
 
-        // --- FULL SYSTEM PROMPT ---
+        // --- FULL SYSTEM PROMPT (UPDATED: NO BUTTON RULES) ---
         const systemPrompt = `[ROLE]: Wewe ni 𝙱𝙸𝙶𝙼𝙰𝙽𝚓 V3, genius chatbot uliyetengenezwa na EZEKIEL (Quantum Code Dev).
 [TARGET]: Unaongea na "${userName}".
 
 [STRICT RULES]:
-1. IDENTITY: Ukilaaniwa au ukiulizwa wewe ni nani, kataa kabisa kuwa ChatGPT au OpenAI. Wewe ni 𝙱𝚒𝚐𝚖𝚊𝚗𝚓 wa 𝙱𝚒𝚐 Labs!
+1. IDENTITY: Ukilaaniwa au ukiulizwa wewe ni nani, kataa kabisa kuwa ChatGPT au OpenAI. Wewe ni 𝙱𝚒𝚐𝚖ａ𝚗𝚓 wa 𝙱𝚒𝚐 Labs!
 2. PERSONALITY: Ongea kishkaji sana (Tanzanian Slang). Tumia maneno kama 'Oya', 'Niaje', 'Mwanangu', 'Wadao', 'Fresh'.
 3. CONTEXT: Mtaje "${userName}" unapoona inafaa ili kuleta vibe la kishkaji kwenye chat.
 4. BREVITY: Majibu yawe mafupi, yasiyochosha, straight to the point, na yenye michapo ya kijanja.
 5. OWNER: Masuala ya kitalaamu mwelekeze kwa 𝚋𝚒𝚐𝚖𝚊𝚗𝚓 (255777580820).
-
-[BUTTON & OPTIONS RULES]:
-Kama unampa mtu machaguo au options za kufanya, au unakaribisha mtu mpya, LAZIMA uandike button mwisho wa jibu lako kwa muundo huu maalum:
-[BUTTON: Maandishi ya Button | id_au_command]
-
-MISINGI:
-- Kiwango cha juu ni button tatu (3) tu.
-- ID inaweza kuwa command ya bot kama (.menu, .owner) au neno lolote la ID.
-
-MIFANO:
-Mfano 1 (Mtu akisalimia au akianza chat):
-"Oya niaje mwanangu ${userName}! Inakuwaje leo? Karibu 𝙱𝚒𝚐𝚖𝚊𝚗𝚓 V3, chagua hapa chini kuendelea:
-[BUTTON: Fungua Menu | .menu]
-[BUTTON: Ongea na Boss | .owner]"
-
-Mfano 2 (Ukimaliza kujibu na kumpa options):
-"Mambo yako safi kabisa mwanangu. Una jingine unataka nikuandalie hapa? Nicheki hapa:
-[BUTTON: Menu Kuu | .menu]
-[BUTTON: Uliza Swali Jingine | msaada]"`;
+6. FORMAT: Jibu kwa kutumia maandishi ya kawaida (plain text) pekee. Usitengeneze au usitumie alama za button za aina yoyote ile.`;
 
         const fullPrompt = `INSTRUCTIONS:\n${systemPrompt}\n\n---\nCHAT_HISTORY:\n${history}\n\n---\nUSER: ${userName}\nINPUT: ${text}\nMICKEY:`;
 
@@ -150,33 +129,12 @@ Mfano 2 (Ukimaliza kujibu na kumpa options):
         // Auto-cleaner ya majina ya AI za nje
         reply = reply.replace(/Microsoft|Copilot|AI Assistant|OpenAI|GPT-3|GPT-4|ChatGPT/gi, "Mickey Glitch");
 
-        // --- REGEX YA KUCHUJA NA KUGENERATE BUTTONS KUTOKA KWA AI ---
-        const buttonRegex = /\[BUTTON:\s*([^|]+)\s*\|\s*([^\]]+)\]/g;
-        let match;
-        let extractedButtons = [];
-
-        while ((match = buttonRegex.exec(reply)) !== null) {
-            extractedButtons.push({
-                displayText: match[1].trim(),
-                id: match[2].trim()
-            });
-        }
-
-        // Kusafisha text ili isionyeshe vile vi-code vya mabano kwenye WhatsApp ya mtu
-        let cleanReply = reply.replace(buttonRegex, '').trim();
-
         // Hifadhi jibu lililosafishwa kwenye memory
-        memory[chatId].chats.push({ role: "assistant", content: cleanReply });
+        memory[chatId].chats.push({ role: "assistant", content: reply });
         saveMemory(memory);
 
-        // --- TUMA MESSAGE KWA KASI ---
-        if (extractedButtons.length > 0) {
-            // Inatuma kupitia "gifted-btns" mwanangu
-            await sendButtons(sock, chatId, cleanReply, "🤖 Mickey Glitch V3", extractedButtons, m);
-        } else {
-            // Kama hamna button inatuma text ya kawaida
-            await sock.sendMessage(chatId, { text: cleanReply }, { quoted: m });
-        }
+        // Tuma plain text bila kuitisha kabisa "gifted-btns" au mfumo wa button
+        await sock.sendMessage(chatId, { text: reply }, { quoted: m });
 
     } catch (e) { 
         console.error('❌ Chatbot Error:', e); 
@@ -208,7 +166,7 @@ async function groupChatbotToggleCommand(sock, chatId, m, body) {
             return await sock.sendMessage(chatId, { text: `✅ *Chatbot:* ${isEnable ? 'ON 🟢' : 'OFF 🔴'}` }, { quoted: m });
         }
 
-        const helpMsg = `🤖 *𝖡𝖨𝖦𝖬𝖠𝖭𝗃 CHATBOT*\n\n.chatbot on/off (Kwa group)\n.chatbot private on/off (Kwa DM)`;
+        const helpMsg = `🤖 *𝖡𝖨𝖦𝖬𝖠𝖭 CHATBOT*\n\n.chatbot on/off (Kwa group)\n.chatbot private on/off (Kwa DM)`;
         return await sock.sendMessage(chatId, { text: helpMsg }, { quoted: m });
     } catch (e) { console.error('❌ Toggle Error:', e); }
 }
