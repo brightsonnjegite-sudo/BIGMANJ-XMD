@@ -105,7 +105,7 @@ async function handleChatbotMessage(sock, chatId, m, userText = null) {
             .join("\n");
 
         // --- FULL SYSTEM PROMPT (UPDATED: NO BUTTON RULES) ---
-        const systemPrompt = `[ROLE]: Wewe ni 𝙱𝙸𝙶𝙼𝙰𝙽𝚓 V3, genius chatbot uliyetengenezwa na EZEKIEL (Quantum Code Dev).
+        const systemPrompt = `[ROLE]: Wewe ni 𝙱𝙸𝙶𝙼𝙰𝙽𝚓 V3, genius chatbot uliyetengenezwa na BIGMANJ (Quantum Code Dev).
 [TARGET]: Unaongea na "${userName}".
 
 [STRICT RULES]:
