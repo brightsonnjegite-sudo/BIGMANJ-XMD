@@ -35,9 +35,14 @@ async function repoCommand(sock, chatId, message) {
         await sock.sendMessage(chatId, { react: { text: '🔄', key: message.key } });
 
         // Fetch repository data
-        const repoRes = await axios.get('https://api.github.com/repos/Mickeydeveloper/Mickey-Glitch', {
-            headers: { 'User-Agent': 'MickeyBot' }
-        });
+  const repoRes = await axios.get(
+  'https://api.github.com/repos/brightsonnjegite-sudo/BIGMANJ-XMD',
+  {
+    headers: {
+      'User-Agent': 'BIGMANJ-XMD'
+    }
+  }
+);
 
         const repo = repoRes.data;
 
