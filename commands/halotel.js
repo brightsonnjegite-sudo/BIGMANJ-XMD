@@ -99,7 +99,7 @@ async function halotelCommand(sock, chatId, m, body = '') {
         // 4. [AI CONVERSATION]
         if (input.length > 2 && !input.startsWith('.')) {
             const aiReply = await askMickeyBiz(input, userName);
-            return await sock.sendMessage(chatId, { text: `💼 *MICKEY BIZ:* ${aiReply}` }, { quoted: m });
+            return await sock.sendMessage(chatId, { text: `💼 *BIGMANj BZNESS:* ${aiReply}` }, { quoted: m });
         }
 
     } catch (e) {
