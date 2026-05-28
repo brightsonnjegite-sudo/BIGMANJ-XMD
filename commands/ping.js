@@ -34,7 +34,7 @@ async function pingCommand(sock, chatId, message) {
 🖥️ *CPU Cores:* ${cpu}
 💻 *Platform:* ${platform}
 ━━━━━━━━━━━━━━━━━━━━━━
-*© 2026 ʙɪɢᴍᴀɴᴊ Labs™*`;
+*© 2026 Bigmanj Labs™*`;
 
         const buttons = [
             { id: '.ping', text: '🔄 REFRESH' },
@@ -45,7 +45,7 @@ async function pingCommand(sock, chatId, message) {
         await sendButtons(sock, chatId, {
             title: '⚡ PING RESULTS',
             text: pingText,
-            footer: '𝔟𝔦𝔤𝔪𝔞𝔫𝔧 Tech',
+            footer: 'Bigmanj Tech',
             buttons: buttons
         }, { quoted: message });
 
