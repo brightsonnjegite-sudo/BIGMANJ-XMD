@@ -99,7 +99,7 @@ async function handleVideoDownload(sock, chatId, ytUrl, message) {
         await sock.sendMessage(chatId, {
             video: { url: data.download },
             mimetype: 'video/mp4',
-            caption: `✅ Tayari!\n> *Mickey Glitch*`
+            caption: `✅ Tayari!\n> *Bigmanj*`
         }, { quoted: message });
 
         await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } });
