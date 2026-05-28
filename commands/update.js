@@ -243,4 +243,4 @@ async function checkVersion(sock, chatId, message) {
     }
 }
 
-module.exports = { updateCommand, checkVersion };
+ module.exports = updateCommand;
