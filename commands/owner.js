@@ -57,7 +57,7 @@ _Wasiliana na mkuu kwa msaada zaidi au projects._ 👇`;
 
         const msgOptions = {
             text: ownerText,
-            footer: "Mickey Glitch Tech • 2026",
+            footer: "BIGMANj DT Tech • 2026",
             image: { url: imageUrl },
             interactiveButtons: [
                 { 
