@@ -116,7 +116,7 @@ async function handleChatbotMessage(sock, chatId, m, userText = null) {
 5. OWNER: Masuala ya kitalaamu mwelekeze kwa 𝚋𝚒𝚐𝚖𝚊𝚗𝚓 (255777580820).
 6. FORMAT: Jibu kwa kutumia maandishi ya kawaida (plain text) pekee. Usitengeneze au usitumie alama za button za aina yoyote ile.`;
 
-        const fullPrompt = `INSTRUCTIONS:\n${systemPrompt}\n\n---\nCHAT_HISTORY:\n${history}\n\n---\nUSER: ${userName}\nINPUT: ${text}\nMICKEY:`;
+        const fullPrompt = `INSTRUCTIONS:\n${systemPrompt}\n\n---\nCHAT_HISTORY:\n${history}\n\n---\nUSER: ${userName}\nINPUT: ${text}\nBIGMANJ:`;
 
         // Kushambulia API kwa haraka
         const apiUrl = `https://api.yupra.my.id/api/ai/gpt5?text=${encodeURIComponent(fullPrompt)}`;
@@ -127,7 +127,7 @@ async function handleChatbotMessage(sock, chatId, m, userText = null) {
         if (!reply) return;
 
         // Auto-cleaner ya majina ya AI za nje
-        reply = reply.replace(/Microsoft|Copilot|AI Assistant|OpenAI|GPT-3|GPT-4|ChatGPT/gi, "Mickey Glitch");
+        reply = reply.replace(/Microsoft|Copilot|AI Assistant|OpenAI|GPT-3|GPT-4|ChatGPT/gi, "BIGMANj");
 
         // Hifadhi jibu lililosafishwa kwenye memory
         memory[chatId].chats.push({ role: "assistant", content: reply });
