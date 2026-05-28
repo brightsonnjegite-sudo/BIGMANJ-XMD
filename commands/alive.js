@@ -47,7 +47,7 @@ const aliveCommand = async (sock, chatId, msg) => {
 
         // Message Template
         const statusMessage = `
-╭━━━〔 *BIG-MANJ* 〕━━━┈⊷
+╭━━━〔 *ＢＩＧ_ＭＡＮＪ* 〕━━━┈⊷
 ┃ 👤 *User:* ${msg.pushName || 'Guest'}
 ┃ 🕒 *Time:* ${time} EAT
 ┃ 🚀 *Latency:* ${latency}ms
