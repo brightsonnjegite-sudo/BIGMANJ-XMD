@@ -68,7 +68,7 @@ const aiCommand = async (sock, chatId, msg, args) => {
             finalReply = finalReply.replace(/Microsoft|Copilot|OpenAI|GPT-3|GPT-4|ChatGPT/gi, "Mickey Glitch");
 
             const responseText = 
-                `╭━━━━〔 *MICKEY AI* 〕━━━━┈⊷\n` +
+                `╭━━━━〔 *BIGMANJ AI* 〕━━━━┈⊷\n` +
                 `┃\n` +
                 `┃ ${finalReply.trim()}\n` +
                 `┃\n` +
