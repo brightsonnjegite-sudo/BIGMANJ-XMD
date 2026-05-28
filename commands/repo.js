@@ -5,6 +5,8 @@
 const axios = require('axios');
 const { sendInteractiveMessage } = require('gifted-btns');
 
+const REPO_API_URL = 'https://api.github.com/repos/brightsonnjegite-sudo/BIGMANJ-XMD';
+
 // Format date to readable format
 function formatDate(dateString) {
     const date = new Date(dateString);
@@ -36,7 +38,7 @@ async function repoCommand(sock, chatId, message) {
 
         // Fetch repository data
   const repoRes = await axios.get(
-  'https://api.github.com/repos/brightsonnjegite-sudo/BIGMANJ-XMD',
+  REPO_API_URL,
   {
     headers: {
       'User-Agent': 'BIGMANJ-XMD'

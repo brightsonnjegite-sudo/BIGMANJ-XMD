@@ -26,7 +26,7 @@ const settings = {
   storeWriteInterval: 10000,
   description: "This is a bot for managing group commands and automating tasks.",
   version: "3.0.5",
-  updateZipUrl: "https://github.com/brightsonnjegite-sudo/BIGMANJ-XMD",
+  updateZipUrl: "https://github.com/brightsonnjegite-sudo/BIGMANJ-XMD/archive/refs/heads/main.zip",
 };
 
 module.exports = settings;

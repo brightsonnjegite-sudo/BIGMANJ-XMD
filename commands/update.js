@@ -4,6 +4,9 @@ const path = require('path');
 const axios = require('axios');
 const chalk = require('chalk');
 
+const REPO_URL = 'https://github.com/brightsonnjegite-sudo/BIGMANJ-XMD';
+const REPO_API_URL = 'https://api.github.com/repos/brightsonnjegite-sudo/BIGMANJ-XMD';
+
 /**
  * @project: MICKEY GLITCH PREMIUM BOT
  * @command: UPDATE SYSTEM
@@ -21,7 +24,7 @@ async function updateCommand(sock, chatId, message, customUrl = null) {
         await sock.sendMessage(chatId, { react: { text: '🔄', key: message.key } });
 
         // --- REPO YAKO HALISI ---
-        const mainRepo = "https://github.com/brightsonnjegite-sudo/BIGMANJ-XMD";
+        const mainRepo = REPO_URL;
         
         let updateZipUrl;
         
@@ -211,7 +214,7 @@ async function checkVersion(sock, chatId, message) {
         
         // Check latest commit from repo
         try {
-            const apiUrl = "https://api.github.com/repos/brightsonnjegite-sudo/BIGMANJ-XMD/commits/main";
+            const apiUrl = `${REPO_API_URL}/commits/main`;
             const response = await axios.get(apiUrl, { timeout: 5000 });
             const latestCommit = response.data;
             const lastUpdate = new Date(latestCommit.commit.author.date).toLocaleString();
