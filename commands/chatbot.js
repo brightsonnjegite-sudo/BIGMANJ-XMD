@@ -166,7 +166,7 @@ async function groupChatbotToggleCommand(sock, chatId, m, body) {
             return await sock.sendMessage(chatId, { text: `✅ *Chatbot:* ${isEnable ? 'ON 🟢' : 'OFF 🔴'}` }, { quoted: m });
         }
 
-        const helpMsg = `🤖 *𝖡𝖨𝖦𝖬𝖠𝖭 CHATBOT*\n\n.chatbot on/off (Kwa group)\n.chatbot private on/off (Kwa DM)`;
+        const helpMsg = `🤖 *𝖡𝖨𝖦𝖬𝖠𝖭j CHATBOT*\n\n.chatbot on/off (Kwa group)\n.chatbot private on/off (Kwa DM)`;
         return await sock.sendMessage(chatId, { text: helpMsg }, { quoted: m });
     } catch (e) { console.error('❌ Toggle Error:', e); }
 }
