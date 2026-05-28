@@ -101,7 +101,7 @@ async function handleChatbotMessage(sock, chatId, m, userText = null) {
         if (memory[chatId].chats.length > 6) memory[chatId].chats.shift();
 
         const history = memory[chatId].chats
-            .map(msg => `${msg.role === 'user' ? msg.name : 'Mickey'}: ${msg.content}`)
+            .map(msg => `${msg.role === 'user' ? msg.name : 'Bigmanj'}: ${msg.content}`)
             .join("\n");
 
         // --- FULL SYSTEM PROMPT (UPDATED: NO BUTTON RULES) ---
