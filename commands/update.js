@@ -49,7 +49,7 @@ async function updateCommand(sock, chatId, message, customUrl = null) {
         if (fs.existsSync(tmpDir)) fs.removeSync(tmpDir);
         fs.ensureDirSync(tmpDir);
 
-        await sock.sendMessage(chatId, { text: "📥 *Ina-download update kutoka Mickey Glitch Repo...*" });
+        await sock.sendMessage(chatId, { text: "📥 *Ina-download update kutoka Bigmanj Repo...*" });
 
         // Download with better error handling
         const response = await axios({
