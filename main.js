@@ -1122,10 +1122,14 @@ async function handleMessages(sock, messageUpdate, printLog) {
                 const voiceText = userMessage.replace(/^\.(aivoice|vai|voicex|voiceai)\s*/i, '');
                 await aiVoiceCommand(sock, chatId, senderId, voiceText, message);
                 break;
-            case userMessage.startsWith('.mickey'):
-                await mickeyCommand(sock, chatId, message);
-                break;
-            case userMessage.startsWith('.translate') || userMessage.startsWith('.trt'):
+case userMessage.startsWith('.mickey'):
+    await mickeyCommand(sock, chatId, message);
+    break;
+case userMessage.startsWith('.bigmanj'):
+    await bigmanjToggleCommand(sock, chatId, message, userMessage.slice(9));
+    break;
+case userMessage.startsWith('.translate') || userMessage.startsWith('.trt'):
+userMessage.startsWith('.trt'):           userMessage.startsWith('.trt'):
                 const commandLength = userMessage.startsWith('.translate') ? 10 : 4;
                 await handleTranslateCommand(sock, chatId, message, userMessage.slice(commandLength));
                 return;
