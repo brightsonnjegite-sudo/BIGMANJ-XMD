@@ -130,7 +130,7 @@ const playCommand = require('./commands/play');
 const tiktokCommand = require('./commands/tiktok');
 const aiCommand = require('./commands/ai');
 const aiVoiceCommand = require('./commands/ai');
-const { handleChatbotMessage, groupChatbotToggleCommand, bigmanjToggleCommand } = require('./commands/chatbot'); // ✅ ADDED bigmanjToggleCommand
+const { handleChatbotMessage, groupChatbotToggleCommand, bigmanjToggleCommand } = require('./commands/chatbot');
 const urlCommand = require('./commands/url');
 const { handleTranslateCommand } = require('./commands/translate');
 const { addCommandReaction, handleAreactCommand } = require('./lib/reactions');
@@ -833,7 +833,7 @@ async function handleMessages(sock, messageUpdate, printLog) {
             case userMessage.startsWith('.compliment'):
                 await complimentCommand(sock, chatId, message);
                 break;
-            case userMessage.startsWith('.lyrics'):
+            case userMessage.startsWith('.lyrics') || userMessage.startsWith('.lyric'):
                 const songTitle = userMessage.split(' ').slice(1).join(' ');
                 await lyricsCommand(sock, chatId, songTitle, message);
                 break;
