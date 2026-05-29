@@ -205,11 +205,11 @@ async function startMickeyBot() {
 
             if (connection === "open") {
                 console.log('\n' + chalk.bgGreen.white("  ✨  CONNECTED  ✨  "));
-                console.log(chalk.green.bold('✅ Mickey Glitch Online!\n'));
+                console.log(chalk.green.bold('✅ Bigmanj•Dt Online!\n'));
 
                 const myNumber = Mickey.user.id.split(':')[0] + "@s.whatsapp.net";
                 const ramUsage = (process.memoryUsage().rss / 1024 / 1024).toFixed(2);
-                const welcomeMsg = `✨ *MICKEY GLITCH BOT* ✨\n🟢 *Status:* Online\n💾 *RAM:* ${ramUsage} MB\n🎯 All Systems Operational`.trim();
+                const welcomeMsg = `✨ *BIGMANJ•DT BOT* ✨\n🟢 *Status:* Online\n💾 *RAM:* ${ramUsage} MB\n🎯 All Systems Operational`.trim();
 
                 try {
                     await Mickey.sendMessage(myNumber, {
@@ -218,7 +218,7 @@ async function startMickeyBot() {
                             isForwarded: true,
                             forwardedNewsletterMessageInfo: {
                                 newsletterJid: "120363398106360290@newsletter",
-                                newsletterName: "🅼🅸🅲🅺🅴🆈",
+                                newsletterName: "🅱🅸🅶🅼🅰🅽🅹",
                                 serverMessageId: 100
                             }
                         }
