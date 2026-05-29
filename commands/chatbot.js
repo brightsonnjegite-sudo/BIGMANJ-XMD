@@ -171,7 +171,9 @@ async function handleChatbotMessage(sock, chatId, m, userText = null) {
     }
 }
 
-async function bigmanjToggleCommand(sock, chatId, m, body) {
+// ========== UNIVERSAL COMMAND HANDLER ==========
+// This function works for both .bigmanj and .chatbot
+async function toggleCommand(sock, chatId, m, body) {
     try {
         const senderId = m.key.participant || m.key.remoteJid;
         if (!isOwner(senderId) && !m.key.fromMe) {
@@ -211,4 +213,9 @@ async function bigmanjToggleCommand(sock, chatId, m, body) {
     }
 }
 
-module.exports = { handleChatbotMessage, bigmanjToggleCommand };
+// Export both old and new names for compatibility
+module.exports = {
+    handleChatbotMessage,
+    bigmanjToggleCommand: toggleCommand,      // for .bigmanj
+    groupChatbotToggleCommand: toggleCommand  // for .chatbot (old name)
+};
