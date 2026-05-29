@@ -8,85 +8,53 @@ async function lyricsCommand(sock, chatId, songTitle, message) {
         return;
     }
 
-    // Show "typing" indicator
+    // 🔄 Onyesha reaction ya "🔍" kwenye ujumbe wa mtumiaji (kuonesha inatafuta)
+    await sock.sendMessage(chatId, { react: { text: '🔍', key: message.key } }).catch(() => {});
+
+    // ✍️ Onyesha kuwa bot inaandika (composing)
     await sock.sendPresenceUpdate('composing', chatId).catch(() => {});
 
     try {
-        let lyrics = null;
-        let errorMsg = '';
+        // API ya PopCat.xyz (huru, hakuna API key required)
+        const apiUrl = `https://api.popcat.xyz/lyrics?song=${encodeURIComponent(songTitle)}`;
+        const response = await fetch(apiUrl);
+        const data = await response.json();
 
-        // ----- API 1: Azrael Lyrics (Genius-based) -----
-        try {
-            const url = `https://azrael-lyrics.vercel.app/?q=${encodeURIComponent(songTitle)}`;
-            const res = await fetch(url);
-            if (res.ok) {
-                const data = await res.json();
-                if (data && data.lyrics && data.lyrics !== 'Lyrics not found') {
-                    lyrics = data.lyrics;
-                }
-            }
-        } catch (e) { errorMsg += `\nAPI1 fail: ${e.message}`; }
-
-        // ----- API 2: Lyrics.ovh (requires artist - title split) -----
-        if (!lyrics) {
-            try {
-                const words = songTitle.split(' ');
-                let artist = words[0];
-                let title = words.slice(1).join(' ');
-                if (!title) title = artist;
-                const url = `https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`;
-                const res = await fetch(url);
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.lyrics) lyrics = data.lyrics;
-                }
-            } catch (e) { errorMsg += `\nAPI2 fail: ${e.message}`; }
-        }
-
-        // ----- API 3: Your original EliteProtech API -----
-        if (!lyrics) {
-            try {
-                const url = `https://eliteprotech-apis.zone.id/lyrics?query=${encodeURIComponent(songTitle)}`;
-                const res = await fetch(url);
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data && data.result && data.result.lyrics) {
-                        lyrics = data.result.lyrics;
-                    }
-                }
-            } catch (e) { errorMsg += `\nAPI3 fail: ${e.message}`; }
-        }
-
-        // If still no lyrics, send failure message
-        if (!lyrics) {
+        // Kama hakuna matokeo au kuna kosa
+        if (!data || data.error || !data.lyrics) {
+            // Badilisha reaction kuwa ❌
+            await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } }).catch(() => {});
             await sock.sendMessage(chatId, {
-                text: `❌ *Lyrics not found* for "${songTitle}".\n\n💡 Jaribu kuandika jina kamili, mfano:\n.lyric Mwamba Mbosso\n\n📌 Ikiwa tatizo linaendelea, API inaweza kuwa imeisha muda.`
+                text: `❌ *Nyimbo "${songTitle}" haikupatikana.*\n💡 Jaribu kuandika jina kamili la wimbo na msanii, mfano:\n.lyric Mwamba Mbosso\n.lyric Eminem Rap God`
             }, { quoted: message });
             return;
         }
 
-        // Clean up the lyrics text
-        lyrics = lyrics.replace(/\r/g, '').trim();
+        // Pata jina la wimbo na msanii
+        const title = data.title || songTitle;
+        const artist = data.artist || 'Msanii asiyejulikana';
+        let lyrics = data.lyrics;
 
-        // WhatsApp limit is ~4096 characters – split if too long
-        const maxLen = 4000;
-        if (lyrics.length > maxLen) {
-            const chunks = [];
-            for (let i = 0; i < lyrics.length; i += maxLen) {
-                chunks.push(lyrics.slice(i, i + maxLen));
-            }
-            for (const chunk of chunks) {
-                await sock.sendMessage(chatId, { text: chunk }, { quoted: message });
-                await new Promise(r => setTimeout(r, 500));
-            }
-        } else {
-            await sock.sendMessage(chatId, { text: lyrics }, { quoted: message });
+        // Kata ikiwa nyimbo ni ndefu (WhatsApp inaruhusu ~4096 herufi)
+        const MAX_LENGTH = 4000;
+        if (lyrics.length > MAX_LENGTH) {
+            lyrics = lyrics.slice(0, MAX_LENGTH - 50) + '\n\n... (nyimbo imekatwa kwa sababu ni ndefu sana)';
         }
 
+        const result = `🎵 *${title}* - ${artist}\n\n${lyrics}`;
+        
+        // Badilisha reaction kuwa ✅ (imefaulu)
+        await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } }).catch(() => {});
+        
+        // Tuma nyimbo
+        await sock.sendMessage(chatId, { text: result }, { quoted: message });
+
     } catch (error) {
-        console.error('Lyrics command error:', error);
+        console.error('❌ Hitilafu ya kutafuta nyimbo:', error);
+        // Reaction ya ❌ kwa kosa
+        await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } }).catch(() => {});
         await sock.sendMessage(chatId, {
-            text: `❌ *Hitilafu*: Imeshindwa kutafuta nyimbo. Jaribu tena baadaye.\nError: ${error.message.slice(0, 100)}`
+            text: '❌ *Imeshindwa kutafuta nyimbo.* Jaribu tena baadaye. (API inaweza kuwa na shida)'
         }, { quoted: message });
     }
 }
