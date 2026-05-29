@@ -2,96 +2,108 @@ const { sendInteractiveMessage } = require('gifted-btns');
 const settings = require('../settings');
 
 /**
- * ownerCommand - 𝙱𝙸𝙶𝙼𝙰𝙽𝚓 Glitch Bot Owner Info
- * Version: Fixed 'key' undefined error
+ * ownerCommand - MICKEY GLITCH BOT
+ * @version 3.0 (FIXED)
+ * @author Quantum Base Developer
  */
+
 async function ownerCommand(sock, chatId, m, body = '') {
+    // Quick validation
+    if (!sock || !chatId) return console.error('❌ Missing parameters');
+
     try {
-        // 1. Safety Check kwa ajili ya 'message' object
-        if (!sock || !chatId || !m) {
-            return console.error('❌ Missing core parameters in ownerCommand');
-        }
+        // Get owner data with defaults
+        const ownerNumber = (settings.ownerNumber || '255612130873').replace(/[^\d]/g, '');
+        const ownerName = settings.botOwner || 'Mickey Developer';
+        const botName = settings.botName || 'MICKEY GLITCH';
 
-        // 2. Data za Owner
-        const ownerNumberRaw = settings.ownerNumber || '255777580820';
-        const ownerName = settings.botOwner || 'Bigmanj Developer';
-        const botName = settings.botName || '*BIGMANj DT*';
-        
-        const cleanNumber = ownerNumberRaw.replace(/[^\d]/g, '');
-        const waLink = `https://wa.me/${cleanNumber}`;
+        // Pre-calculate links
+        const waLink = `https://wa.me/${ownerNumber}`;
         const channelLink = 'https://whatsapp.com/channel/0029Vb6B9xFCxoAseuG1g610';
+        const imageUrl = 'https://water-billing-292n.onrender.com/1761205727440.png';
 
-        // 3. [BUTTON HANDLER]
-        const input = (body || '').toLowerCase().trim();
-        if (input === 'get_vcard' || input === '.get_vcard') {
-            const vcard = 'BEGIN:VCARD\n' +
-                'VERSION:3.0\n' +
-                `FN:${ownerName}\n` +
-                `ORG:${botName} Tech;\n` +
-                `TEL;type=CELL;type=VOICE;waid=${cleanNumber}:+${cleanNumber}\n` +
-                'END:VCARD';
+        // Handle vcard request (fast response)
+        const cmd = (body || '').toLowerCase().trim();
+        if (cmd === 'get_vcard' || cmd === '.get_vcard') {
+            const vcard = `BEGIN:VCARD
+VERSION:3.0
+FN:${ownerName}
+ORG:${botName}
+TEL;waid=${ownerNumber}:+${ownerNumber}
+END:VCARD`;
 
             return await sock.sendMessage(chatId, {
-                contacts: {
-                    displayName: ownerName,
-                    contacts: [{ vcard }]
-                }
+                contacts: { displayName: ownerName, contacts: [{ vcard }] }
             }, { quoted: m });
         }
 
-        // 4. [MAIN UI]
-        const ownerText = `👑 *BOT OWNER INFORMATION*
-
-*🤖 Bot:* ${botName}
-*👤 Owner:* ${ownerName}
-*📞 Contact:* +${cleanNumber}
-
-_Wasiliana na mkuu kwa msaada zaidi au projects._ 👇`;
-
-        const imageUrl = 'https://water-billing-292n.onrender.com/1761205727440.png';
-
-        // Piga reaction kwa usalama (Check if m.key exists)
-        if (m.key) {
-            await sock.sendMessage(chatId, { react: { text: '👑', key: m.key } }).catch(() => null);
+        // Quick reaction (non-blocking)
+        if (m?.key) {
+            sock.sendMessage(chatId, { react: { text: '👑', key: m.key } }).catch(() => {});
         }
 
-        const msgOptions = {
-            text: ownerText,
-            footer: "BIGMANj DT Tech • 2026",
-            image: { url: imageUrl },
-            interactiveButtons: [
-                { 
-                    name: 'cta_url', 
-                    buttonParamsJson: JSON.stringify({ 
-                        display_text: '💬 WhatsApp Chat', 
-                        url: waLink 
-                    }) 
-                },
-                { 
-                    name: 'quick_reply', 
-                    buttonParamsJson: JSON.stringify({ 
-                        display_text: '📇 Get Business Card', 
-                        id: 'get_vcard' 
-                    }) 
-                },
-                { 
-                    name: 'cta_url', 
-                    buttonParamsJson: JSON.stringify({ 
-                        display_text: '📢 Join Channel', 
-                        url: channelLink 
-                    }) 
-                }
-            ]
-        };
+        // ============ FIXED: Proper message format ============
+        const ownerText = `👑 *OWNER INFO*
 
-        await sendInteractiveMessage(sock, chatId, msgOptions, { quoted: m });
+*Bot:* ${botName}
+*Owner:* ${ownerName}
+*Contact:* +${ownerNumber}
+
+📌 *Tap button below to connect*`;
+
+        // ============ OPTION 1: Try sendInteractiveMessage first ============
+        try {
+            await sendInteractiveMessage(sock, chatId, {
+                text: ownerText,
+                footer: "Mickey Glitch • 2026",
+                image: imageUrl,  // Some versions use string, not { url }
+                interactiveButtons: [
+                    { 
+                        name: 'cta_url', 
+                        buttonParamsJson: JSON.stringify({ 
+                            display_text: '💬 CHAT', 
+                            url: waLink 
+                        }) 
+                    },
+                    { 
+                        name: 'quick_reply', 
+                        buttonParamsJson: JSON.stringify({ 
+                            display_text: '📇 VCARD', 
+                            id: 'get_vcard' 
+                        }) 
+                    },
+                    { 
+                        name: 'cta_url', 
+                        buttonParamsJson: JSON.stringify({ 
+                            display_text: '📢 CHANNEL', 
+                            url: channelLink 
+                        }) 
+                    }
+                ]
+            });
+        } catch (interactiveError) {
+            console.error('Interactive message failed, using fallback:', interactiveError.message);
+            
+            // ============ OPTION 2: Fallback to normal message with buttons ============
+            await sock.sendMessage(chatId, {
+                text: ownerText,
+                buttons: [
+                    { buttonId: 'owner_chat', buttonText: { displayText: '💬 CHAT' }, type: 1 },
+                    { buttonId: 'get_vcard', buttonText: { displayText: '📇 VCARD' }, type: 1 },
+                    { buttonId: 'owner_channel', buttonText: { displayText: '📢 CHANNEL' }, type: 1 }
+                ],
+                viewOnce: true
+            }, { quoted: m });
+        }
 
     } catch (e) {
-        console.error('Owner Cmd Error:', e);
-        // Tuma error message bila kutegemea reaction
+        console.error('Owner Error:', e);
+        // ============ OPTION 3: Ultimate fallback - plain text only ============
+        const fallbackText = `👑 *OWNER INFO*\n\n*Bot:* ${settings.botName || 'MICKEY GLITCH'}\n*Owner:* ${settings.botOwner || 'Mickey Developer'}\n*Contact:* wa.me/${settings.ownerNumber || '255612130873'}\n\n📢 Channel: whatsapp.com/channel/0029Vb6B9xFCxoAseuG1g610`;
+        
         await sock.sendMessage(chatId, { 
-            text: '❌ *Hitilafu imetokea kwenye mfumo.*' 
-        }).catch(err => console.log('Final fallback failed'));
+            text: fallbackText
+        }, { quoted: m }).catch(() => {});
     }
 }
 
