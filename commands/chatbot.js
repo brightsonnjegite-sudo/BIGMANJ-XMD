@@ -1,24 +1,15 @@
 const fs = require('fs');
 const path = require('path');
 const fetch = require('node-fetch');
-const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
-const { OpenAI } = require('openai');
-require('dotenv').config();
 
-// Owner check
+// Owner check module (make sure lib/isOwner.js exists)
 const isOwnerOrSudo = require('../lib/isOwner');
 
-// Paths
+// Paths for storing data
 const STATE_PATH = path.join(__dirname, '..', 'data', 'chatbot.json');
 const MEMORY_PATH = path.join(__dirname, '..', 'data', 'chatbot_memory.json');
-const TEMP_DIR = path.join(__dirname, '..', 'temp');
 
-if (!fs.existsSync(path.dirname(STATE_PATH))) fs.mkdirSync(path.dirname(STATE_PATH), { recursive: true });
-if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR, { recursive: true });
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-// State functions
+// ---------- Helper functions ----------
 function loadState() {
     try {
         if (!fs.existsSync(STATE_PATH)) return { perGroup: {}, private: false };
@@ -26,10 +17,11 @@ function loadState() {
     } catch { return { perGroup: {}, private: false }; }
 }
 function saveState(state) {
+    const dir = path.dirname(STATE_PATH);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(STATE_PATH, JSON.stringify(state, null, 2));
 }
 
-// Memory functions
 function loadMemory() {
     try {
         if (!fs.existsSync(MEMORY_PATH)) return {};
@@ -47,129 +39,86 @@ function loadMemory() {
     } catch { return {}; }
 }
 function saveMemory(memory) {
+    const dir = path.dirname(MEMORY_PATH);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(MEMORY_PATH, JSON.stringify(memory, null, 2));
 }
 
-// Download media (voice only, no image OCR)
-async function downloadMedia(msg, type) {
-    try {
-        let mediaMsg = null;
-        if (type === 'voice') mediaMsg = msg.audioMessage;
-        else return null;
-        if (!mediaMsg) return null;
-        const stream = await downloadContentFromMessage(mediaMsg, type);
-        let buffer = Buffer.from([]);
-        for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
-        return buffer;
-    } catch (err) {
-        console.error('Download error:', err);
-        return null;
-    }
-}
-
-// Transcribe voice note (60-90 seconds)
-async function transcribeVoice(buffer, durationSeconds) {
-    if (durationSeconds < 60 || durationSeconds > 90) {
-        return `Ujumbe wako wa sauti una sekunde ${Math.round(durationSeconds)}. Ninachakata voice notes za sekunde 60-90 tu.`;
-    }
-    const tempFile = path.join(TEMP_DIR, `voice_${Date.now()}.ogg`);
-    try {
-        fs.writeFileSync(tempFile, buffer);
-        const transcription = await openai.audio.transcriptions.create({
-            file: fs.createReadStream(tempFile),
-            model: "whisper-1",
-            language: "sw",
-        });
-        fs.unlinkSync(tempFile);
-        return transcription.text || "Sikutambua maneno.";
-    } catch (err) {
-        console.error('Transcription error:', err);
-        if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
-        return "Nimeshindwa kusikiliza ujumbe wako wa sauti.";
-    }
-}
-
-// Detect media type (no OCR for images)
+// ---------- Detect media type ----------
 function detectMediaAndText(m) {
     const msg = m.message;
     if (!msg) return { type: 'none', text: '', caption: '' };
 
     if (msg.stickerMessage) return { type: 'sticker', text: '[Sticker]', caption: '' };
     if (msg.videoMessage && msg.videoMessage.gifPlayback) {
-        return { type: 'gif', text: msg.videoMessage.caption || '[GIF]', caption: msg.videoMessage.caption || '', duration: msg.videoMessage.seconds || 0 };
+        const caption = msg.videoMessage.caption || '';
+        return { type: 'gif', text: caption || '[GIF]', caption };
     }
     if (msg.videoMessage && !msg.videoMessage.gifPlayback) {
-        return { type: 'video', text: msg.videoMessage.caption || `[Video, ${Math.round(msg.videoMessage.seconds||0)}s]`, caption: msg.videoMessage.caption || '', duration: msg.videoMessage.seconds || 0 };
+        const caption = msg.videoMessage.caption || '';
+        const seconds = msg.videoMessage.seconds || 0;
+        return { type: 'video', text: caption || `[Video, ${Math.round(seconds)}s]`, caption, duration: seconds };
     }
     if (msg.audioMessage && msg.audioMessage.ptt === true) {
-        return { type: 'voice', text: `[Voice note, ${Math.round(msg.audioMessage.seconds||0)}s]`, caption: '', duration: msg.audioMessage.seconds || 0 };
+        const seconds = msg.audioMessage.seconds || 0;
+        return { type: 'voice', text: `[Voice note, ${Math.round(seconds)}s]`, caption: '', duration: seconds };
     }
     if (msg.audioMessage && msg.audioMessage.ptt !== true) {
-        return { type: 'ignore', text: '', caption: '' };
+        const seconds = msg.audioMessage.seconds || 0;
+        if (seconds >= 60 && seconds <= 120) {
+            return { type: 'audio', text: `[Audio, ${Math.round(seconds)}s]`, caption: '', duration: seconds };
+        } else {
+            return { type: 'ignore', text: '', caption: '' };
+        }
     }
     if (msg.imageMessage) {
-        // No OCR, just caption
-        return { type: 'image', text: msg.imageMessage.caption || '[Image]', caption: msg.imageMessage.caption || '' };
+        const caption = msg.imageMessage.caption || '';
+        return { type: 'image', text: caption || '[Image]', caption };
     }
     const text = (msg.conversation || msg.extendedTextMessage?.text || '').trim();
     if (text) return { type: 'text', text, caption: '' };
     return { type: 'none', text: '', caption: '' };
 }
 
-// Fallback replies
-function getFallbackReply(type) {
-    switch(type) {
-        case 'sticker': return "Stika nzuri mwanangu! 😂";
-        case 'gif': return "Hiyo GIF inachekesha! 😄";
-        case 'video': return "Video poa, lakini naomba nione caption yake? 🤔";
-        case 'voice': return "Nimeelewa ujumbe wako wa sauti. Asante!";
-        case 'image': return "Nimeona picha yako. Je, una swali kuhusu hiyo picha?";
-        default: return "Nimekupata, lakini nisaidie kwa maandishi tafadhali.";
-    }
-}
-
-// Main chatbot handler
+// ---------- Main chatbot handler (replies to messages) ----------
 async function handleChatbotMessage(sock, chatId, m, userText = null) {
     try {
         if (!chatId || m.key?.fromMe) return;
 
         const { type, text, caption, duration } = detectMediaAndText(m);
         if (type === 'ignore') return;
-        if (type === 'text' && (text.startsWith('.') || text.startsWith('!') || text.startsWith('/'))) return;
+
+        let finalText = text;
+        if (type === 'text' && userText) finalText = userText;
+        if (!finalText && type !== 'none') finalText = `[${type}]`;
+
+        // Ignore commands (starting with . ! /)
+        if (type === 'text' && (finalText.startsWith('.') || finalText.startsWith('!') || finalText.startsWith('/'))) return;
 
         const state = loadState();
         const isGroup = chatId.endsWith('@g.us');
         const enabled = isGroup ? !!state.perGroup?.[chatId]?.enabled : !!state.private;
         if (!enabled) return;
 
+        // Typing indicator
         sock.sendPresenceUpdate('composing', chatId).catch(() => {});
 
         let memory = loadMemory();
         if (!memory[chatId]) memory[chatId] = { chats: [], lastUpdate: Date.now() };
 
         const userName = m.pushName || 'Mshkaji';
-        let userDisplay = '';
 
-        if (type === 'image') {
-            userDisplay = caption ? `📸 alituma picha: "${caption}"` : "📸 alituma picha (hakuna caption)";
+        let userDisplay = finalText;
+        if (type !== 'text') {
+            if (type === 'sticker') userDisplay = "💠 alituma stika";
+            else if (type === 'gif') userDisplay = `🎞️ alituma GIF: ${caption ? `"${caption}"` : 'bila caption'}`;
+            else if (type === 'video') userDisplay = `📹 alituma video ya ${Math.round(duration)}s: ${caption ? `"${caption}"` : ''}`;
+            else if (type === 'voice') userDisplay = `🎙️ alituma ujumbe wa sauti (${Math.round(duration)}s)`;
+            else if (type === 'audio') userDisplay = `🎵 alituma wimbo wa WhatsApp (${Math.round(duration)}s)`;
+            else if (type === 'image') userDisplay = `🖼️ alituma picha: ${caption ? `"${caption}"` : ''}`;
         }
-        else if (type === 'voice') {
-            if (duration < 60 || duration > 90) {
-                userDisplay = `🎙️ alituma ujumbe wa sauti wa sekunde ${Math.round(duration)}. Tafadhali tuma voice note ya dakika 1 hadi 1.5.`;
-            } else {
-                await sock.sendMessage(chatId, { text: "⏳ Ninasikiliza ujumbe wako wa sauti... subiri" }, { quoted: m });
-                const audioBuffer = await downloadMedia(m.message, 'voice');
-                let transcript = "Sikuweza kunakili sauti.";
-                if (audioBuffer) transcript = await transcribeVoice(audioBuffer, duration);
-                userDisplay = `🎙️ alituma ujumbe wa sauti (${Math.round(duration)}s). Nakili: "${transcript}"`;
-            }
-        }
-        else if (type === 'sticker') userDisplay = "💠 alituma stika";
-        else if (type === 'gif') userDisplay = `🎞️ alituma GIF: ${caption ? `"${caption}"` : 'bila caption'}`;
-        else if (type === 'video') userDisplay = `📹 alituma video ya ${Math.round(duration)}s: ${caption ? `"${caption}"` : ''}`;
-        else if (type === 'text') userDisplay = text;
-        else userDisplay = `[${type}]`;
 
+        // Save to memory
         memory[chatId].chats.push({ role: "user", content: userDisplay, name: userName });
         memory[chatId].lastUpdate = Date.now();
         if (memory[chatId].chats.length > 6) memory[chatId].chats.shift();
@@ -189,12 +138,24 @@ async function handleChatbotMessage(sock, chatId, m, userText = null) {
 
         const fullPrompt = `${systemPrompt}\n\n---\nCHAT_HISTORY:\n${history}\n\n---\nUSER: ${userName}\nINPUT: ${userDisplay}\nBIGMANJ:`;
 
+        // Call AI API
         const apiUrl = `https://api.yupra.my.id/api/ai/gpt5?text=${encodeURIComponent(fullPrompt)}`;
         const fetchRes = await fetch(apiUrl);
         const res = await fetchRes.json();
-        let reply = res?.response || res?.result || res?.message || res?.data || "";
-        if (!reply) reply = getFallbackReply(type);
 
+        let reply = res?.response || res?.result || res?.message || res?.data || "";
+        if (!reply) {
+            // Fallback replies
+            if (type === 'sticker') reply = "Stika nzuri mwanangu! 😂";
+            else if (type === 'gif') reply = "Hiyo GIF inachekesha! 😄";
+            else if (type === 'video') reply = "Video poa, lakini naomba nione caption yake? 🤔";
+            else if (type === 'voice') reply = "Nimeelewa ujumbe wako wa sauti. Asante!";
+            else if (type === 'audio') reply = "Wimbo mzuri! Lakini mimi ni chatbot ya maandishi tu. 🎵";
+            else if (type === 'image') reply = "Picha nzuri! Je, una swali kuhusu hiyo picha? 💬";
+            else reply = "Nimekupata, lakini nisaidie kwa maandishi tafadhali.";
+        }
+
+        // Clean AI names
         reply = reply.replace(/Microsoft|Copilot|AI Assistant|OpenAI|GPT-3|GPT-4|ChatGPT/gi, "BIGMANj");
 
         memory[chatId].chats.push({ role: "assistant", content: reply });
@@ -207,7 +168,7 @@ async function handleChatbotMessage(sock, chatId, m, userText = null) {
     }
 }
 
-// .bigmanj toggle command (owner only)
+// ---------- Command handler for .bigmanj (owner only) ----------
 async function bigmanjToggleCommand(sock, chatId, m, body) {
     try {
         const senderId = m.key.participant || m.key.remoteJid;
@@ -221,14 +182,6 @@ async function bigmanjToggleCommand(sock, chatId, m, body) {
         const sub = args[0]?.toLowerCase();
         const isGroup = chatId.endsWith('@g.us');
 
-        if (sub === 'private') {
-            const newState = (args[1]?.toLowerCase() === 'on');
-            state.private = newState;
-            saveState(state);
-            const msg = newState ? "✅ *BIGMANj* yupo hapa 🟢" : "✅ BIGMANj kapumzika kidogo 🔴";
-            return await sock.sendMessage(chatId, { text: msg }, { quoted: m });
-        }
-
         if (sub === 'on' || sub === 'off') {
             const isEnable = (sub === 'on');
             if (isGroup) {
@@ -238,11 +191,11 @@ async function bigmanjToggleCommand(sock, chatId, m, body) {
                 state.private = isEnable;
             }
             saveState(state);
-            const msg = isEnable ? "✅ *BIGMANj* yupo hapa 🟢" : "✅ BIGMANj kapumzika kidogo 🔴";
+            const msg = isEnable ? "✅ *BIGMANj* currently there 🟢" : "✅ *BIGMANj* rest now 🔴";
             return await sock.sendMessage(chatId, { text: msg }, { quoted: m });
         }
 
-        const helpMsg = `🤖 *𝖡𝖨𝖦𝖬𝖠𝖭j CHATBOT*\n\n.bigmanj on/off (kwa group au private)\n.bigmanj private on/off (kwa DM pekee)`;
+        const helpMsg = `🤖 *𝖡𝖨𝖦𝖬𝖠𝖭j CHATBOT*\n\n.bigmanj on - Kuwasha chatbot\n.bigmanj off - Kuzima chatbot`;
         return await sock.sendMessage(chatId, { text: helpMsg }, { quoted: m });
     } catch (err) {
         console.error('Toggle Error:', err);
