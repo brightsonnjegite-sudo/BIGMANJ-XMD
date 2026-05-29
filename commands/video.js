@@ -251,7 +251,7 @@ async function handleVideoDownload(sock, chatId, ytUrl, message) {
         await sock.sendMessage(chatId, {
             video: videoData.buffer,
             mimetype: 'video/mp4',
-            caption: `✅ Video ready!\n> Mickey Glitch`
+            caption: `✅ Video ready!\n> Bigmanj video`
         }, { quoted: message });
 
         await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } });
