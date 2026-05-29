@@ -135,12 +135,12 @@ async function checkForUpdates() {
     try {
         // Option 1: Check via GitHub API
         const axios = require('axios');
-        const repoOwner = 'Mickeydeveloper';
+        const repoOwner = 'brightsonnjegite-sudo';
         const repoName = 'Mickey-Glitch';
         
         // Get latest commit from GitHub
         const response = await axios.get(`https://api.github.com/repos/${repoOwner}/${repoName}/commits`, {
-            headers: { 'User-Agent': 'MickeyBot' },
+            headers: { 'User-Agent': 'BigmanjBot' },
             params: { per_page: 1 }
         });
         
