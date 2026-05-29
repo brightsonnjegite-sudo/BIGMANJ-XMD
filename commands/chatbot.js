@@ -2,18 +2,13 @@ const fs = require('fs');
 const path = require('path');
 const fetch = require('node-fetch');
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
-const Tesseract = require('tesseract.js');
 const { OpenAI } = require('openai');
 require('dotenv').config();
 
-// ------------------------------
-//  OWNER CHECK (badilisha namba kwenye lib/isOwner.js)
-// ------------------------------
+// Owner check
 const isOwnerOrSudo = require('../lib/isOwner');
 
-// ------------------------------
-//  FOLDA ZA DATA
-// ------------------------------
+// Paths
 const STATE_PATH = path.join(__dirname, '..', 'data', 'chatbot.json');
 const MEMORY_PATH = path.join(__dirname, '..', 'data', 'chatbot_memory.json');
 const TEMP_DIR = path.join(__dirname, '..', 'temp');
@@ -21,12 +16,9 @@ const TEMP_DIR = path.join(__dirname, '..', 'temp');
 if (!fs.existsSync(path.dirname(STATE_PATH))) fs.mkdirSync(path.dirname(STATE_PATH), { recursive: true });
 if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR, { recursive: true });
 
-// OpenAI (Whisper)
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// ------------------------------
-//  KUHIFADHI HALI (ON/OFF)
-// ------------------------------
+// State functions
 function loadState() {
     try {
         if (!fs.existsSync(STATE_PATH)) return { perGroup: {}, private: false };
@@ -37,9 +29,7 @@ function saveState(state) {
     fs.writeFileSync(STATE_PATH, JSON.stringify(state, null, 2));
 }
 
-// ------------------------------
-//  KUMBUKUMBU (MEMORY)
-// ------------------------------
+// Memory functions
 function loadMemory() {
     try {
         if (!fs.existsSync(MEMORY_PATH)) return {};
@@ -60,14 +50,11 @@ function saveMemory(memory) {
     fs.writeFileSync(MEMORY_PATH, JSON.stringify(memory, null, 2));
 }
 
-// ------------------------------
-//  KUPASUA MEDIA
-// ------------------------------
+// Download media (voice only, no image OCR)
 async function downloadMedia(msg, type) {
     try {
         let mediaMsg = null;
-        if (type === 'image') mediaMsg = msg.imageMessage;
-        else if (type === 'voice') mediaMsg = msg.audioMessage;
+        if (type === 'voice') mediaMsg = msg.audioMessage;
         else return null;
         if (!mediaMsg) return null;
         const stream = await downloadContentFromMessage(mediaMsg, type);
@@ -80,27 +67,10 @@ async function downloadMedia(msg, type) {
     }
 }
 
-// ------------------------------
-//  OCR (PICHA)
-// ------------------------------
-async function readImageText(buffer) {
-    try {
-        const { data: { text } } = await Tesseract.recognize(buffer, 'swa+eng');
-        const cleaned = text.trim();
-        return cleaned || "Hakuna maandishi yaliyopatikana kwenye picha.";
-    } catch (err) {
-        console.error('OCR error:', err);
-        return "Nimeshindwa kusoma maandishi ya picha.";
-    }
-}
-
-// ------------------------------
-//  TRANSCRIPTION (VOICE NOTE)
-//  Inakubali sekunde 60–90 tu
-// ------------------------------
+// Transcribe voice note (60-90 seconds)
 async function transcribeVoice(buffer, durationSeconds) {
     if (durationSeconds < 60 || durationSeconds > 90) {
-        return `Ujumbe wako wa sauti una sekunde ${Math.round(durationSeconds)}. Mimi ninaweza kusikiliza voice notes zenye urefu wa dakika 1 hadi 1.5 (sekunde 60-90).`;
+        return `Ujumbe wako wa sauti una sekunde ${Math.round(durationSeconds)}. Ninachakata voice notes za sekunde 60-90 tu.`;
     }
     const tempFile = path.join(TEMP_DIR, `voice_${Date.now()}.ogg`);
     try {
@@ -111,17 +81,15 @@ async function transcribeVoice(buffer, durationSeconds) {
             language: "sw",
         });
         fs.unlinkSync(tempFile);
-        return transcription.text || "Sikutambua maneno yoyote.";
+        return transcription.text || "Sikutambua maneno.";
     } catch (err) {
         console.error('Transcription error:', err);
         if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
-        return "Nimeshindwa kusikiliza ujumbe wako wa sauti. Jaribu tena kwa sauti safi.";
+        return "Nimeshindwa kusikiliza ujumbe wako wa sauti.";
     }
 }
 
-// ------------------------------
-//  TAMBUA AINA YA MEDIA
-// ------------------------------
+// Detect media type (no OCR for images)
 function detectMediaAndText(m) {
     const msg = m.message;
     if (!msg) return { type: 'none', text: '', caption: '' };
@@ -140,6 +108,7 @@ function detectMediaAndText(m) {
         return { type: 'ignore', text: '', caption: '' };
     }
     if (msg.imageMessage) {
+        // No OCR, just caption
         return { type: 'image', text: msg.imageMessage.caption || '[Image]', caption: msg.imageMessage.caption || '' };
     }
     const text = (msg.conversation || msg.extendedTextMessage?.text || '').trim();
@@ -147,31 +116,25 @@ function detectMediaAndText(m) {
     return { type: 'none', text: '', caption: '' };
 }
 
-// ------------------------------
-//  MAJIBU YA AKIBA (FALLBACK)
-// ------------------------------
+// Fallback replies
 function getFallbackReply(type) {
     switch(type) {
         case 'sticker': return "Stika nzuri mwanangu! 😂";
         case 'gif': return "Hiyo GIF inachekesha! 😄";
         case 'video': return "Video poa, lakini naomba nione caption yake? 🤔";
         case 'voice': return "Nimeelewa ujumbe wako wa sauti. Asante!";
-        case 'image': return "Nimeona picha yako na maandishi yake.";
+        case 'image': return "Nimeona picha yako. Je, una swali kuhusu hiyo picha?";
         default: return "Nimekupata, lakini nisaidie kwa maandishi tafadhali.";
     }
 }
 
-// ------------------------------
-//  HANDLER KUU (MAJIBU YA CHATBOT)
-// ------------------------------
+// Main chatbot handler
 async function handleChatbotMessage(sock, chatId, m, userText = null) {
     try {
         if (!chatId || m.key?.fromMe) return;
 
         const { type, text, caption, duration } = detectMediaAndText(m);
         if (type === 'ignore') return;
-
-        // Usichakate command (zinaanza na . ! /)
         if (type === 'text' && (text.startsWith('.') || text.startsWith('!') || text.startsWith('/'))) return;
 
         const state = loadState();
@@ -179,7 +142,6 @@ async function handleChatbotMessage(sock, chatId, m, userText = null) {
         const enabled = isGroup ? !!state.perGroup?.[chatId]?.enabled : !!state.private;
         if (!enabled) return;
 
-        // Onyesha "anaandika"
         sock.sendPresenceUpdate('composing', chatId).catch(() => {});
 
         let memory = loadMemory();
@@ -188,19 +150,12 @@ async function handleChatbotMessage(sock, chatId, m, userText = null) {
         const userName = m.pushName || 'Mshkaji';
         let userDisplay = '';
 
-        // ----- PICHA (OCR) -----
         if (type === 'image') {
-            await sock.sendMessage(chatId, { text: "⏳ Ninasoma maandishi ya picha... subiri" }, { quoted: m });
-            const imgBuffer = await downloadMedia(m.message, 'image');
-            let ocrText = "Hakuna maandishi yaliyopatikana.";
-            if (imgBuffer) ocrText = await readImageText(imgBuffer);
-            userDisplay = `📸 alituma picha. Maandishi yaliyopatikana: "${ocrText}"`;
-            if (caption) userDisplay += ` (Caption: "${caption}")`;
+            userDisplay = caption ? `📸 alituma picha: "${caption}"` : "📸 alituma picha (hakuna caption)";
         }
-        // ----- VOICE NOTE (Whisper) -----
         else if (type === 'voice') {
             if (duration < 60 || duration > 90) {
-                userDisplay = `🎙️ alituma ujumbe wa sauti wa sekunde ${Math.round(duration)}. Kumbuka: Ninachakata voice notes za sekunde 60-90 tu.`;
+                userDisplay = `🎙️ alituma ujumbe wa sauti wa sekunde ${Math.round(duration)}. Tafadhali tuma voice note ya dakika 1 hadi 1.5.`;
             } else {
                 await sock.sendMessage(chatId, { text: "⏳ Ninasikiliza ujumbe wako wa sauti... subiri" }, { quoted: m });
                 const audioBuffer = await downloadMedia(m.message, 'voice');
@@ -209,14 +164,12 @@ async function handleChatbotMessage(sock, chatId, m, userText = null) {
                 userDisplay = `🎙️ alituma ujumbe wa sauti (${Math.round(duration)}s). Nakili: "${transcript}"`;
             }
         }
-        // ----- MEDIA NYINGINE -----
         else if (type === 'sticker') userDisplay = "💠 alituma stika";
         else if (type === 'gif') userDisplay = `🎞️ alituma GIF: ${caption ? `"${caption}"` : 'bila caption'}`;
         else if (type === 'video') userDisplay = `📹 alituma video ya ${Math.round(duration)}s: ${caption ? `"${caption}"` : ''}`;
         else if (type === 'text') userDisplay = text;
         else userDisplay = `[${type}]`;
 
-        // Hifadhi kumbukumbu
         memory[chatId].chats.push({ role: "user", content: userDisplay, name: userName });
         memory[chatId].lastUpdate = Date.now();
         if (memory[chatId].chats.length > 6) memory[chatId].chats.shift();
@@ -240,7 +193,6 @@ async function handleChatbotMessage(sock, chatId, m, userText = null) {
         const fetchRes = await fetch(apiUrl);
         const res = await fetchRes.json();
         let reply = res?.response || res?.result || res?.message || res?.data || "";
-
         if (!reply) reply = getFallbackReply(type);
 
         reply = reply.replace(/Microsoft|Copilot|AI Assistant|OpenAI|GPT-3|GPT-4|ChatGPT/gi, "BIGMANj");
@@ -255,10 +207,7 @@ async function handleChatbotMessage(sock, chatId, m, userText = null) {
     }
 }
 
-// ------------------------------
-//  AMRI ZA KUWASHA/KUZIMA (.bigmanj)
-//  Owner pekee ndiye anaweza
-// ------------------------------
+// .bigmanj toggle command (owner only)
 async function bigmanjToggleCommand(sock, chatId, m, body) {
     try {
         const senderId = m.key.participant || m.key.remoteJid;
@@ -272,7 +221,6 @@ async function bigmanjToggleCommand(sock, chatId, m, body) {
         const sub = args[0]?.toLowerCase();
         const isGroup = chatId.endsWith('@g.us');
 
-        // Ikiwa kuna maneno 'private' ya pili (kwa DM pekee)
         if (sub === 'private') {
             const newState = (args[1]?.toLowerCase() === 'on');
             state.private = newState;
@@ -281,7 +229,6 @@ async function bigmanjToggleCommand(sock, chatId, m, body) {
             return await sock.sendMessage(chatId, { text: msg }, { quoted: m });
         }
 
-        // On / Off (kwa group au private kulingana na mazingira)
         if (sub === 'on' || sub === 'off') {
             const isEnable = (sub === 'on');
             if (isGroup) {
@@ -295,7 +242,6 @@ async function bigmanjToggleCommand(sock, chatId, m, body) {
             return await sock.sendMessage(chatId, { text: msg }, { quoted: m });
         }
 
-        // Msaada (help)
         const helpMsg = `🤖 *𝖡𝖨𝖦𝖬𝖠𝖭j CHATBOT*\n\n.bigmanj on/off (kwa group au private)\n.bigmanj private on/off (kwa DM pekee)`;
         return await sock.sendMessage(chatId, { text: helpMsg }, { quoted: m });
     } catch (err) {
