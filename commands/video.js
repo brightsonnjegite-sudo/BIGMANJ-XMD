@@ -53,7 +53,7 @@ async function getVideoFromAllDown(ytUrl) {
                 buffer: Buffer.from(fileRes.data),
                 title: data.title,
                 thumbnail: data.thumbnail,
-                source: 'Nayan AllDown'
+                source: '*BIGMANJ*'   // Changed
             };
         }
         throw new Error('API response invalid');
@@ -136,7 +136,7 @@ async function getVideoFromYoutubeAPI(ytUrl) {
                     thumbnail: thumbnail,
                     author: author,
                     quality: bestVideo.quality || bestVideo.label,
-                    source: 'Nayan YouTube API'
+                    source: '*BIGMANJ*'   // Changed
                 };
             }
         }
@@ -221,7 +221,7 @@ async function videoCommand(sock, chatId, message) {
             });
         }
 
-        // Send video with footer "bigmanj"
+        // Send video with footer "bigmanj" and source *BIGMANJ*
         const videoMessage = {
             video: videoData.buffer,
             mimetype: 'video/mp4',
