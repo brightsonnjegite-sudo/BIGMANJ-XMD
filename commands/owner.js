@@ -13,9 +13,9 @@ async function ownerCommand(sock, chatId, m, body = '') {
 
     try {
         // Get owner data with defaults
-        const ownerNumber = (settings.ownerNumber || '255612130873').replace(/[^\d]/g, '');
-        const ownerName = settings.botOwner || 'Mickey Developer';
-        const botName = settings.botName || 'MICKEY GLITCH';
+        const ownerNumber = (settings.ownerNumber || '255777580820').replace(/[^\d]/g, '');
+        const ownerName = settings.botOwner || 'Bigmanj Developer';
+        const botName = settings.botName || '𝗕𝗜𝗚𝗠𝗔𝗡𝗝•𝗗𝗧;
 
         // Pre-calculate links
         const waLink = `https://wa.me/${ownerNumber}`;
