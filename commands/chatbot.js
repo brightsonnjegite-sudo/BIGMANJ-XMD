@@ -1,12 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 
-// ========== HARDCODED OWNER NUMBERS (change these) ==========
+// ========== HARDCODED OWNER NUMBERS ==========
 const OWNER_NUMBERS = [
-    '255777580820@s.whatsapp.net',   // Replace with your actual WhatsApp number (with country code)
-    // Add more owner numbers if needed
+    '255777580820@s.whatsapp.net',   // Your owner number
 ];
-// ============================================================
+// =============================================
 
 // Paths for storing data
 const STATE_PATH = path.join(__dirname, '..', 'data', 'chatbot.json');
@@ -47,9 +46,7 @@ function saveMemory(memory) {
     fs.writeFileSync(MEMORY_PATH, JSON.stringify(memory, null, 2));
 }
 
-// ---------- Owner check (inline) ----------
 function isOwner(senderId) {
-    // senderId is like "255xxxx@s.whatsapp.net" or "255xxxx@c.us"
     return OWNER_NUMBERS.includes(senderId);
 }
 
@@ -89,7 +86,7 @@ function detectMediaAndText(m) {
     return { type: 'none', text: '', caption: '' };
 }
 
-// ---------- Chatbot reply using free GPT API ----------
+// ---------- Free AI API ----------
 async function getAIReply(prompt) {
     try {
         const url = `https://api.yupra.my.id/api/ai/gpt5?text=${encodeURIComponent(prompt)}`;
@@ -102,7 +99,7 @@ async function getAIReply(prompt) {
     }
 }
 
-// ---------- Main message handler (replies to messages) ----------
+// ---------- Main message handler ----------
 async function handleChatbotMessage(sock, chatId, m, userText = null) {
     try {
         if (!chatId || m.key?.fromMe) return;
@@ -114,7 +111,6 @@ async function handleChatbotMessage(sock, chatId, m, userText = null) {
         if (type === 'text' && userText) finalText = userText;
         if (!finalText && type !== 'none') finalText = `[${type}]`;
 
-        // Ignore commands
         if (type === 'text' && (finalText.startsWith('.') || finalText.startsWith('!') || finalText.startsWith('/'))) return;
 
         const state = loadState();
@@ -122,7 +118,6 @@ async function handleChatbotMessage(sock, chatId, m, userText = null) {
         const enabled = isGroup ? !!state.perGroup?.[chatId]?.enabled : !!state.private;
         if (!enabled) return;
 
-        // Typing indicator
         sock.sendPresenceUpdate('composing', chatId).catch(() => {});
 
         let memory = loadMemory();
@@ -140,7 +135,6 @@ async function handleChatbotMessage(sock, chatId, m, userText = null) {
             else if (type === 'image') userDisplay = `🖼️ alituma picha: ${caption ? `"${caption}"` : ''}`;
         }
 
-        // Save user message to memory
         memory[chatId].chats.push({ role: "user", content: userDisplay, name: userName });
         memory[chatId].lastUpdate = Date.now();
         if (memory[chatId].chats.length > 6) memory[chatId].chats.shift();
@@ -160,8 +154,8 @@ async function handleChatbotMessage(sock, chatId, m, userText = null) {
 
         const fullPrompt = `${systemPrompt}\n\nHISTORY:\n${history}\n\n${userName}: ${userDisplay}\nBIGMANj:`;
         let reply = await getAIReply(fullPrompt);
+
         if (!reply) {
-            // Fallback
             if (type === 'sticker') reply = "Stika nzuri mwanangu! 😂";
             else if (type === 'gif') reply = "Hiyo GIF inachekesha! 😄";
             else if (type === 'video') reply = "Video poa!";
@@ -182,7 +176,7 @@ async function handleChatbotMessage(sock, chatId, m, userText = null) {
     }
 }
 
-// ---------- Command handler for .bigmanj (owner only) ----------
+// ---------- .bigmanj command handler (owner only) ----------
 async function bigmanjToggleCommand(sock, chatId, m, body) {
     try {
         const senderId = m.key.participant || m.key.remoteJid;
