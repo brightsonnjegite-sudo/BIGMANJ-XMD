@@ -55,7 +55,7 @@ END:VCARD`;
         try {
             await sendInteractiveMessage(sock, chatId, {
                 text: ownerText,
-                footer: "Mickey Glitch • 2026",
+                footer: "Bigmanj • 2026",
                 image: imageUrl,  // Some versions use string, not { url }
                 interactiveButtons: [
                     { 
