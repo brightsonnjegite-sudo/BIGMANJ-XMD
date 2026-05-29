@@ -99,7 +99,7 @@ END:VCARD`;
     } catch (e) {
         console.error('Owner Error:', e);
         // ============ OPTION 3: Ultimate fallback - plain text only ============
-        const fallbackText = `👑 *OWNER INFO*\n\n*Bot:* ${settings.botName || 'MICKEY GLITCH'}\n*Owner:* ${settings.botOwner || 'Mickey Developer'}\n*Contact:* wa.me/${settings.ownerNumber || '255612130873'}\n\n📢 Channel: whatsapp.com/channel/0029Vb6B9xFCxoAseuG1g610`;
+        const fallbackText = `👑 *OWNER INFO*\n\n*Bot:* ${settings.botName || '𝗕𝗜𝗚𝗠𝗔𝗡𝗝•𝗗𝗧'}\n*Owner:* ${settings.botOwner || 'Bigmanj Developer'}\n*Contact:* wa.me/${settings.ownerNumber || '255777580820'}\n\n📢 Channel: whatsapp.com/channel/0029Vb6B9xFCxoAseuG1g610`;
         
         await sock.sendMessage(chatId, { 
             text: fallbackText
