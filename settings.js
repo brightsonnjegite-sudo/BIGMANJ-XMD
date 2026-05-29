@@ -1,9 +1,9 @@
 const settings = {
   packname: '𝙼𝚒𝚌𝚔𝚎𝚢 𝙶𝚕𝚒𝚝𝚌𝚑™',
   author: '‎',
-  botName: "𝙼𝚒𝚌𝚔𝚎𝚢 𝙶𝚕𝚒𝚝𝚌𝚑",
-  botOwner: 'Mickey', // Your name
-  ownerNumber: '255612130873', //Set your number here without + symbol, just add country code & number without any space
+  botName: "𝗕𝗜𝗚𝗠𝗔𝗡𝗝•𝗗𝗧",
+  botOwner: '𝗕𝗶𝗴𝗺𝗮𝗻𝗷, // Your name
+  ownerNumber: '255777580820', //Set your number here without + symbol, just add country code & number without any space
   
   // Auto Status Sync Settings
   syncTarget: '255612130873', // Target number for status sync (set to owner number)
