@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const REMINDER_FILE = path.join(__dirname, '../data/updateReminder.json');
 const VERSION_FILE = path.join(__dirname, '../data/currentVersion.json');
 const LOCAL_HASH_FILE = path.join(__dirname, '../data/localHash.json');
+const LOCAL_MANIFEST_FILE = path.join(__dirname, '../data/localManifest.json');
 const REPO_OWNER = 'brightsonnjegite-sudo';
 const REPO_NAME = 'Mickey-Glitch';
 
@@ -34,16 +35,12 @@ async function saveReminder() {
     }
 }
 
-// Compute hash of ALL important local files (including non-js)
-async function computeLocalHash() {
+// Get list of important files (fast, no content read)
+async function getImportantFiles() {
     const rootDir = path.join(__dirname, '..');
-    // Folders to ignore completely
     const ignoreDirs = ['node_modules', 'data', 'auth_info', '.git', 'tmp', 'logs'];
-    // Files to always ignore
     const ignoreFiles = ['.env', '.DS_Store', 'package-lock.json'];
-    // File extensions to include (or specific filenames)
     const includeExtensions = ['.js', '.json', '.md', '.txt', '.example', '.yml', '.yaml'];
-    // Specific filenames without extension
     const includeExact = ['Procfile', '.env.example', 'Dockerfile', 'config', 'settings'];
 
     const files = [];
@@ -67,8 +64,56 @@ async function computeLocalHash() {
     }
 
     await walkDir(rootDir);
-    files.sort(); // ensure consistent order
+    files.sort();
+    return files;
+}
 
+// Check if any file has changed using mtime & size (very fast)
+async function hasLocalFileChanges() {
+    const files = await getImportantFiles();
+    let manifest = {};
+    try {
+        const data = await fs.readFile(LOCAL_MANIFEST_FILE, 'utf8');
+        manifest = JSON.parse(data);
+    } catch {
+        // no manifest, assume changes (first run)
+        return true;
+    }
+
+    for (const file of files) {
+        try {
+            const stat = await fs.stat(file);
+            const key = file;
+            const stored = manifest[key];
+            if (!stored || stored.mtime !== stat.mtimeMs || stored.size !== stat.size) {
+                return true; // changed
+            }
+        } catch {
+            return true; // file missing or error
+        }
+    }
+    return false;
+}
+
+// Update manifest with current file stats
+async function updateManifest() {
+    const files = await getImportantFiles();
+    const manifest = {};
+    for (const file of files) {
+        try {
+            const stat = await fs.stat(file);
+            manifest[file] = { mtime: stat.mtimeMs, size: stat.size };
+        } catch (err) {
+            // ignore
+        }
+    }
+    await fs.mkdir(path.dirname(LOCAL_MANIFEST_FILE), { recursive: true });
+    await fs.writeFile(LOCAL_MANIFEST_FILE, JSON.stringify(manifest, null, 2));
+}
+
+// Compute full hash (only called when changes detected)
+async function computeFullHash() {
+    const files = await getImportantFiles();
     const hash = crypto.createHash('sha256');
     for (const file of files) {
         try {
@@ -76,12 +121,13 @@ async function computeLocalHash() {
             hash.update(file);
             hash.update(content);
         } catch (err) {
-            // skip unreadable files
+            // skip
         }
     }
     return hash.digest('hex');
 }
 
+// Get stored local hash
 async function getStoredLocalHash() {
     try {
         const data = await fs.readFile(LOCAL_HASH_FILE, 'utf8');
@@ -96,13 +142,31 @@ async function saveLocalHash(hash) {
     await fs.writeFile(LOCAL_HASH_FILE, JSON.stringify({ hash, updatedAt: new Date().toISOString() }, null, 2));
 }
 
+// Fast local changes check (uses manifest first)
+async function checkLocalChangesFast() {
+    const hasChanges = await hasLocalFileChanges();
+    if (!hasChanges) {
+        const storedHash = await getStoredLocalHash();
+        return { hasChanged: false, currentHash: storedHash, storedHash };
+    }
+    // Recompute hash because changes detected
+    const currentHash = await computeFullHash();
+    const storedHash = await getStoredLocalHash();
+    const changed = storedHash !== null && storedHash !== currentHash;
+    // Update manifest after recompute
+    await updateManifest();
+    return { hasChanged: changed, currentHash, storedHash };
+}
+
 async function getLatestCommit() {
     const repoInfo = await axios.get(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}`, {
-        headers: { 'User-Agent': 'MickeyBot' }
+        headers: { 'User-Agent': 'MickeyBot' },
+        timeout: 5000
     });
     const defaultBranch = repoInfo.data.default_branch;
     const commitRes = await axios.get(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/commits/${defaultBranch}`, {
-        headers: { 'User-Agent': 'MickeyBot' }
+        headers: { 'User-Agent': 'MickeyBot' },
+        timeout: 5000
     });
     return { sha: commitRes.data.sha, branch: defaultBranch };
 }
@@ -140,7 +204,8 @@ async function checkForUpdates() {
 
         if (isUpdateAvailable) {
             const compareRes = await axios.get(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/compare/${currentSha}...${latestSha}`, {
-                headers: { 'User-Agent': 'MickeyBot' }
+                headers: { 'User-Agent': 'MickeyBot' },
+                timeout: 5000
             });
             changedFiles = compareRes.data.files.map(f => f.filename);
         }
@@ -161,33 +226,27 @@ async function checkForUpdates() {
     }
 }
 
-async function checkLocalChanges() {
-    const currentHash = await computeLocalHash();
-    const storedHash = await getStoredLocalHash();
-    return { hasChanged: storedHash !== null && storedHash !== currentHash, currentHash, storedHash };
-}
-
 function formatUpdateInfo(res, localChanges) {
     if (res.message) return res.message;
 
     let output = '';
     if (localChanges.hasChanged) {
         output += `⚠️ *MABADILIKO YA NDANI YAMEGUNDULIKA!*\n`;
-        output += `Umebadilisha faili za mfumo wako (local) ambazo hazipo kwenye GitHub.\n`;
-        output += `Ikiwa unataka kuweka upya hali ya ndani, tumia: \`.checkupdates resetlocal\`\n\n`;
+        output += `Umebadilisha faili za mfumo wako (local).\n`;
+        output += `Tumia: \`.checkupdates resetlocal\` baada ya kuhakiki.\n\n`;
     }
 
     if (!res.available) {
-        output += `✅ *Bot iko updated (remote)!*\nToleo la sasa: \`${res.currentSha?.slice(0,7) || 'unknown'}\`\nHakuna update mpya kutoka GitHub.`;
+        output += `✅ *Bot iko updated (remote)!*\nToleo: \`${res.currentSha?.slice(0,7) || 'unknown'}\``;
     } else {
         const compareUrl = `https://github.com/${REPO_OWNER}/${REPO_NAME}/compare/${res.currentSha}...${res.latestSha}`;
         const filesCount = res.files ? res.files.split('\n').filter(Boolean).length : 0;
         output += `🔄 *UPDATE INAPATIKANA KUTOKA GITHUB!*\n\n` +
                   `Toleo lako: \`${res.currentSha.slice(0,7)}\`\n` +
                   `Toleo jipya: \`${res.latestSha.slice(0,7)}\`\n` +
-                  `Mabadiliko: ${filesCount} faili zimebadilishwa\n\n` +
-                  `📝 [Angalia mabadiliko](${compareUrl})\n\n` +
-                  `💡 Baada ya kupakua update, tumia .checkupdates reset ili kusasisha toleo.`;
+                  `Mabadiliko: ${filesCount} faili\n\n` +
+                  `📝 [Angalia](${compareUrl})\n\n` +
+                  `💡 Baada ya kupakua, tumia .checkupdates reset`;
     }
     return output;
 }
@@ -226,7 +285,7 @@ async function checkUpdatesCommand(sock, chatId, message, args = []) {
             const { sha, branch } = await getLatestCommit();
             await saveVersion(sha);
             await sock.sendMessage(chatId, {
-                text: `✅ *Toleo limewekwa upya (remote)*\nToleo jipya: \`${sha.slice(0,7)}\` (tawi: ${branch})\nSasa unaweza kuangalia tena kwa .checkupdates`
+                text: `✅ *Toleo limewekwa upya (remote)*\nToleo jipya: \`${sha.slice(0,7)}\` (tawi: ${branch})`
             }, { quoted: message });
         } catch (err) {
             await sock.sendMessage(chatId, { text: `❌ Imeshindwa kuweka upya: ${err.message}` }, { quoted: message });
@@ -236,10 +295,12 @@ async function checkUpdatesCommand(sock, chatId, message, args = []) {
 
     if (cmd === 'resetlocal') {
         try {
-            const currentHash = await computeLocalHash();
+            // Force recompute hash and update manifest
+            const currentHash = await computeFullHash();
             await saveLocalHash(currentHash);
+            await updateManifest();
             await sock.sendMessage(chatId, {
-                text: `✅ *Hali ya ndani imewekwa upya*\nSasa bot itaona mabadiliko yako kama "halali".`
+                text: `✅ *Hali ya ndani imewekwa upya*`
             }, { quoted: message });
         } catch (err) {
             await sock.sendMessage(chatId, { text: `❌ Imeshindwa: ${err.message}` }, { quoted: message });
@@ -248,11 +309,16 @@ async function checkUpdatesCommand(sock, chatId, message, args = []) {
     }
 
     try {
-        const res = await checkForUpdates();
-        const localChanges = await checkLocalChanges();
+        // Run remote check and local check in parallel for speed
+        const [res, localChanges] = await Promise.all([
+            checkForUpdates(),
+            checkLocalChangesFast()
+        ]);
 
-        if (!localChanges.storedHash) {
+        // First run: store local hash if not exists
+        if (!localChanges.storedHash && localChanges.currentHash) {
             await saveLocalHash(localChanges.currentHash);
+            await updateManifest();
         }
 
         const updateMsg = formatUpdateInfo(res, localChanges);
@@ -266,7 +332,7 @@ async function checkUpdatesCommand(sock, chatId, message, args = []) {
                 reminder.lastCheck = new Date().toISOString();
                 await saveReminder();
                 await sock.sendMessage(chatId, {
-                    text: `🔔 *KUMBUKA:* Kuna update ya GitHub inasubiri. Tumia .checkupdates reset baada ya kupakua.`
+                    text: `🔔 *KUMBUKA:* Kuna update ya GitHub. Tumia .checkupdates reset baada ya kupakua.`
                 });
             }
         } else if (!res.available && !res.message) {
@@ -277,7 +343,7 @@ async function checkUpdatesCommand(sock, chatId, message, args = []) {
     } catch (err) {
         console.error('CheckUpdates failed:', err);
         await sock.sendMessage(chatId, {
-            text: `❌ *Imeshindwa kuangalia updates*\n\nHitilafu: ${err.message || err}\n\nAngalia mtandao na ujaribu tena.`
+            text: `❌ *Imeshindwa kuangalia updates*\n\nHitilafu: ${err.message || err}`
         }, { quoted: message });
     }
 }
