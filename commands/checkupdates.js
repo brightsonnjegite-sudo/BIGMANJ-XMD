@@ -32,7 +32,6 @@ async function saveReminder() {
     }
 }
 
-// Helper: get latest commit SHA from GitHub (default branch)
 async function getLatestCommit() {
     const repoInfo = await axios.get(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}`, {
         headers: { 'User-Agent': 'MickeyBot' }
@@ -44,7 +43,6 @@ async function getLatestCommit() {
     return { sha: commitRes.data.sha, branch: defaultBranch };
 }
 
-// Helper: get stored version
 async function getStoredVersion() {
     try {
         const data = await fs.readFile(VERSION_FILE, 'utf8');
@@ -54,25 +52,22 @@ async function getStoredVersion() {
     }
 }
 
-// Helper: save version
 async function saveVersion(sha) {
     await fs.mkdir(path.dirname(VERSION_FILE), { recursive: true });
     await fs.writeFile(VERSION_FILE, JSON.stringify({ sha, updatedAt: new Date().toISOString() }, null, 2));
 }
 
-// Main check logic (with auto-initialize)
 async function checkForUpdates() {
     try {
         const { sha: latestSha, branch } = await getLatestCommit();
         let currentSha = await getStoredVersion();
 
-        // FIRST RUN: no stored version → save latest as current
         if (!currentSha) {
             await saveVersion(latestSha);
             return {
                 available: false,
                 mode: 'none',
-                message: `📌 *First time setup* — Current version saved: \`${latestSha.slice(0,7)}\` (branch: ${branch})\n\nNo updates available yet.`
+                message: `📌 *Mara ya kwanza* — Toleo limehifadhiwa: \`${latestSha.slice(0,7)}\` (tawi: ${branch})\n\nHakuna update kwa sasa.`
             };
         }
 
@@ -102,9 +97,8 @@ async function checkForUpdates() {
     }
 }
 
-// Format update message (simplified but clear)
 function formatUpdateInfo(res) {
-    if (res.message) return res.message; // first run message
+    if (res.message) return res.message;
 
     if (!res.available) {
         return `✅ *Bot iko updated!*\nToleo la sasa: \`${res.currentSha?.slice(0,7) || 'unknown'}\`\nHakuna update mpya.`;
@@ -118,64 +112,56 @@ function formatUpdateInfo(res) {
            `Toleo jipya: \`${res.latestSha.slice(0,7)}\`\n` +
            `Mabadiliko: ${filesCount} faili zimebadilishwa\n\n` +
            `📝 [Angalia mabadiliko](${compareUrl})\n\n` +
-           `💡 Ikiwa umeanza kutumia bot, hakikisha umepakua mabadiliko. Unaweza kutumia \`.update\` (kama ipo) au kupakua mwenyewe.`;
+           `💡 Baada ya kupakua update, tumia .checkupdates reset ili kusasisha toleo.`;
 }
 
-// Main command function
 async function checkUpdatesCommand(sock, chatId, message, args = []) {
     const senderId = message.key.participant || message.key.remoteJid;
     const isOwner = await isOwnerOrSudo(senderId, sock, chatId);
 
     if (!message.key.fromMe && !isOwner) {
-        await sock.sendMessage(chatId, { text: 'Only bot owner or sudo can use .checkupdates' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: 'Owner pekee ndiye anaweza kutumia .checkupdates' }, { quoted: message });
         return;
     }
 
     const reminder = await loadReminder();
     const cmd = (args[0] || '').toLowerCase();
 
-    // Auto reminder toggle
     if (cmd === 'auto') {
         reminder.autoReminder = !reminder.autoReminder;
         await saveReminder();
         await sock.sendMessage(chatId, {
-            text: `✅ Auto update reminders ${reminder.autoReminder ? 'ENABLED' : 'DISABLED'}`
+            text: `✅ Kumbusho la kiotomatiki ${reminder.autoReminder ? 'LIMEWASHWA' : 'IMEZIMWA'}`
         }, { quoted: message });
         return;
     }
 
-    // Reminder status
     if (cmd === 'status') {
-        const status = reminder.autoReminder ? '✅ ENABLED' : '❌ DISABLED';
+        const status = reminder.autoReminder ? '✅ LIMEWASHWA' : '❌ IMEZIMWA';
         await sock.sendMessage(chatId, {
-            text: `📢 *Update Reminder Status:* ${status}\n\n💡 Use .checkupdates auto to toggle`
+            text: `📢 *Hali ya kumbusho:* ${status}\n\nTumia .checkupdates auto kugeuza.`
         }, { quoted: message });
         return;
     }
 
-    // RESET command: force stored version to latest remote (use after manual update)
     if (cmd === 'reset') {
         try {
             const { sha, branch } = await getLatestCommit();
             await saveVersion(sha);
             await sock.sendMessage(chatId, {
-                text: `✅ *Version reset successful*\nToleo limewekwa upya: \`${sha.slice(0,7)}\` (branch: ${branch})\n\nSasa unaweza kuangalia updates tena kwa .checkupdates`
+                text: `✅ *Toleo limewekwa upya*\nToleo jipya: \`${sha.slice(0,7)}\` (tawi: ${branch})\nSasa unaweza kuangalia tena kwa .checkupdates`
             }, { quoted: message });
         } catch (err) {
-            await sock.sendMessage(chatId, {
-                text: `❌ Reset failed: ${err.message}`
-            }, { quoted: message });
+            await sock.sendMessage(chatId, { text: `❌ Imeshindwa kuweka upya: ${err.message}` }, { quoted: message });
         }
         return;
     }
 
-    // Normal update check
     try {
         const res = await checkForUpdates();
         const updateMsg = formatUpdateInfo(res);
         await sock.sendMessage(chatId, { text: updateMsg }, { quoted: message });
 
-        // Auto reminder logic
         if (res.available && reminder.autoReminder) {
             const hash = res.files ? res.files.slice(0, 50) : '';
             if (hash !== reminder.updateHash) {
@@ -183,9 +169,8 @@ async function checkUpdatesCommand(sock, chatId, message, args = []) {
                 reminder.updateFound = true;
                 reminder.lastCheck = new Date().toISOString();
                 await saveReminder();
-                // Optional: send extra reminder
                 await sock.sendMessage(chatId, {
-                    text: `🔔 *KUMBUKA:* Kuna update inasubiri. Tumia .update kupata mabadiliko (kama command ipo).`
+                    text: `🔔 *KUMBUKA:* Kuna update inasubiri. Tumia .checkupdates reset baada ya kupakua.`
                 });
             }
         } else if (!res.available && !res.message) {
@@ -196,7 +181,7 @@ async function checkUpdatesCommand(sock, chatId, message, args = []) {
     } catch (err) {
         console.error('CheckUpdates failed:', err);
         await sock.sendMessage(chatId, {
-            text: `❌ *Update Check Failed*\n\nError: ${err.message || err}\n\n💡 Hakikisha mtandao uko sawa na ujaribu tena.`
+            text: `❌ *Imeshindwa kuangalia updates*\n\nHitilafu: ${err.message || err}\n\nAngalia mtandao na ujaribu tena.`
         }, { quoted: message });
     }
 }
