@@ -2,10 +2,12 @@ const isOwnerOrSudo = require('../lib/isOwner');
 const fs = require('fs/promises');
 const path = require('path');
 const axios = require('axios');
+const crypto = require('crypto');
 
 // Configuration
 const REMINDER_FILE = path.join(__dirname, '../data/updateReminder.json');
 const VERSION_FILE = path.join(__dirname, '../data/currentVersion.json');
+const LOCAL_HASH_FILE = path.join(__dirname, '../data/localHash.json');
 const REPO_OWNER = 'brightsonnjegite-sudo';
 const REPO_NAME = 'Mickey-Glitch';
 
@@ -30,6 +32,68 @@ async function saveReminder() {
     } catch (err) {
         console.error('[UpdateReminder] Save failed:', err.message);
     }
+}
+
+// Compute hash of ALL important local files (including non-js)
+async function computeLocalHash() {
+    const rootDir = path.join(__dirname, '..');
+    // Folders to ignore completely
+    const ignoreDirs = ['node_modules', 'data', 'auth_info', '.git', 'tmp', 'logs'];
+    // Files to always ignore
+    const ignoreFiles = ['.env', '.DS_Store', 'package-lock.json'];
+    // File extensions to include (or specific filenames)
+    const includeExtensions = ['.js', '.json', '.md', '.txt', '.example', '.yml', '.yaml'];
+    // Specific filenames without extension
+    const includeExact = ['Procfile', '.env.example', 'Dockerfile', 'config', 'settings'];
+
+    const files = [];
+
+    async function walkDir(dir) {
+        const items = await fs.readdir(dir, { withFileTypes: true });
+        for (const item of items) {
+            const fullPath = path.join(dir, item.name);
+            if (ignoreDirs.includes(item.name)) continue;
+            if (ignoreFiles.includes(item.name)) continue;
+            if (item.isDirectory()) {
+                await walkDir(fullPath);
+            } else if (item.isFile()) {
+                const ext = path.extname(item.name);
+                const shouldInclude = includeExtensions.includes(ext) || includeExact.includes(item.name);
+                if (shouldInclude) {
+                    files.push(fullPath);
+                }
+            }
+        }
+    }
+
+    await walkDir(rootDir);
+    files.sort(); // ensure consistent order
+
+    const hash = crypto.createHash('sha256');
+    for (const file of files) {
+        try {
+            const content = await fs.readFile(file);
+            hash.update(file);
+            hash.update(content);
+        } catch (err) {
+            // skip unreadable files
+        }
+    }
+    return hash.digest('hex');
+}
+
+async function getStoredLocalHash() {
+    try {
+        const data = await fs.readFile(LOCAL_HASH_FILE, 'utf8');
+        return JSON.parse(data).hash;
+    } catch {
+        return null;
+    }
+}
+
+async function saveLocalHash(hash) {
+    await fs.mkdir(path.dirname(LOCAL_HASH_FILE), { recursive: true });
+    await fs.writeFile(LOCAL_HASH_FILE, JSON.stringify({ hash, updatedAt: new Date().toISOString() }, null, 2));
 }
 
 async function getLatestCommit() {
@@ -97,22 +161,35 @@ async function checkForUpdates() {
     }
 }
 
-function formatUpdateInfo(res) {
+async function checkLocalChanges() {
+    const currentHash = await computeLocalHash();
+    const storedHash = await getStoredLocalHash();
+    return { hasChanged: storedHash !== null && storedHash !== currentHash, currentHash, storedHash };
+}
+
+function formatUpdateInfo(res, localChanges) {
     if (res.message) return res.message;
 
-    if (!res.available) {
-        return `✅ *Bot iko updated!*\nToleo la sasa: \`${res.currentSha?.slice(0,7) || 'unknown'}\`\nHakuna update mpya.`;
+    let output = '';
+    if (localChanges.hasChanged) {
+        output += `⚠️ *MABADILIKO YA NDANI YAMEGUNDULIKA!*\n`;
+        output += `Umebadilisha faili za mfumo wako (local) ambazo hazipo kwenye GitHub.\n`;
+        output += `Ikiwa unataka kuweka upya hali ya ndani, tumia: \`.checkupdates resetlocal\`\n\n`;
     }
 
-    const compareUrl = `https://github.com/${REPO_OWNER}/${REPO_NAME}/compare/${res.currentSha}...${res.latestSha}`;
-    const filesCount = res.files ? res.files.split('\n').filter(Boolean).length : 0;
-
-    return `🔄 *UPDATE INAPATIKANA!*\n\n` +
-           `Toleo lako: \`${res.currentSha.slice(0,7)}\`\n` +
-           `Toleo jipya: \`${res.latestSha.slice(0,7)}\`\n` +
-           `Mabadiliko: ${filesCount} faili zimebadilishwa\n\n` +
-           `📝 [Angalia mabadiliko](${compareUrl})\n\n` +
-           `💡 Baada ya kupakua update, tumia .checkupdates reset ili kusasisha toleo.`;
+    if (!res.available) {
+        output += `✅ *Bot iko updated (remote)!*\nToleo la sasa: \`${res.currentSha?.slice(0,7) || 'unknown'}\`\nHakuna update mpya kutoka GitHub.`;
+    } else {
+        const compareUrl = `https://github.com/${REPO_OWNER}/${REPO_NAME}/compare/${res.currentSha}...${res.latestSha}`;
+        const filesCount = res.files ? res.files.split('\n').filter(Boolean).length : 0;
+        output += `🔄 *UPDATE INAPATIKANA KUTOKA GITHUB!*\n\n` +
+                  `Toleo lako: \`${res.currentSha.slice(0,7)}\`\n` +
+                  `Toleo jipya: \`${res.latestSha.slice(0,7)}\`\n` +
+                  `Mabadiliko: ${filesCount} faili zimebadilishwa\n\n` +
+                  `📝 [Angalia mabadiliko](${compareUrl})\n\n` +
+                  `💡 Baada ya kupakua update, tumia .checkupdates reset ili kusasisha toleo.`;
+    }
+    return output;
 }
 
 async function checkUpdatesCommand(sock, chatId, message, args = []) {
@@ -149,7 +226,7 @@ async function checkUpdatesCommand(sock, chatId, message, args = []) {
             const { sha, branch } = await getLatestCommit();
             await saveVersion(sha);
             await sock.sendMessage(chatId, {
-                text: `✅ *Toleo limewekwa upya*\nToleo jipya: \`${sha.slice(0,7)}\` (tawi: ${branch})\nSasa unaweza kuangalia tena kwa .checkupdates`
+                text: `✅ *Toleo limewekwa upya (remote)*\nToleo jipya: \`${sha.slice(0,7)}\` (tawi: ${branch})\nSasa unaweza kuangalia tena kwa .checkupdates`
             }, { quoted: message });
         } catch (err) {
             await sock.sendMessage(chatId, { text: `❌ Imeshindwa kuweka upya: ${err.message}` }, { quoted: message });
@@ -157,9 +234,28 @@ async function checkUpdatesCommand(sock, chatId, message, args = []) {
         return;
     }
 
+    if (cmd === 'resetlocal') {
+        try {
+            const currentHash = await computeLocalHash();
+            await saveLocalHash(currentHash);
+            await sock.sendMessage(chatId, {
+                text: `✅ *Hali ya ndani imewekwa upya*\nSasa bot itaona mabadiliko yako kama "halali".`
+            }, { quoted: message });
+        } catch (err) {
+            await sock.sendMessage(chatId, { text: `❌ Imeshindwa: ${err.message}` }, { quoted: message });
+        }
+        return;
+    }
+
     try {
         const res = await checkForUpdates();
-        const updateMsg = formatUpdateInfo(res);
+        const localChanges = await checkLocalChanges();
+
+        if (!localChanges.storedHash) {
+            await saveLocalHash(localChanges.currentHash);
+        }
+
+        const updateMsg = formatUpdateInfo(res, localChanges);
         await sock.sendMessage(chatId, { text: updateMsg }, { quoted: message });
 
         if (res.available && reminder.autoReminder) {
@@ -170,7 +266,7 @@ async function checkUpdatesCommand(sock, chatId, message, args = []) {
                 reminder.lastCheck = new Date().toISOString();
                 await saveReminder();
                 await sock.sendMessage(chatId, {
-                    text: `🔔 *KUMBUKA:* Kuna update inasubiri. Tumia .checkupdates reset baada ya kupakua.`
+                    text: `🔔 *KUMBUKA:* Kuna update ya GitHub inasubiri. Tumia .checkupdates reset baada ya kupakua.`
                 });
             }
         } else if (!res.available && !res.message) {
