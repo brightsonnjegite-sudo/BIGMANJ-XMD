@@ -106,7 +106,6 @@ async function getVideoFromYoutubeAPI(ytUrl) {
                     let quality = format.quality || format.label || '';
                     let priority = 0;
                     
-                    // Check quality from label or quality field
                     for (const [q, p] of Object.entries(qualityPriority)) {
                         if (quality.includes(q)) {
                             priority = p;
@@ -114,7 +113,6 @@ async function getVideoFromYoutubeAPI(ytUrl) {
                         }
                     }
                     
-                    // Prefer video_with_audio over video_only
                     if (format.type === 'video_with_audio') {
                         priority += 5;
                     }
@@ -223,11 +221,11 @@ async function videoCommand(sock, chatId, message) {
             });
         }
 
-        // Send video
+        // Send video with footer "bigmanj"
         const videoMessage = {
             video: videoData.buffer,
             mimetype: 'video/mp4',
-            caption: `✅ *${videoData.title.substring(0, 50)}*\n📡 ${videoData.source}`,
+            caption: `✅ *${videoData.title.substring(0, 50)}*\n📡 ${videoData.source}\n\n> bigmanj`,
             fileName: `${videoData.title.substring(0, 40)}.mp4`
         };
 
@@ -251,7 +249,7 @@ async function handleVideoDownload(sock, chatId, ytUrl, message) {
         await sock.sendMessage(chatId, {
             video: videoData.buffer,
             mimetype: 'video/mp4',
-            caption: `✅ Video ready!\n> Bigmanj video`
+            caption: `✅ Video ready!\n> bigmanj`
         }, { quoted: message });
 
         await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } });
@@ -265,14 +263,14 @@ async function handleAudioDownload(sock, chatId, ytUrl, message) {
     try {
         await sock.sendMessage(chatId, { react: { text: '📥', key: message.key } });
         
-        // Reuse the audio function from play.js or implement here
         const { getYoutubeAudio } = require('./play.js');
         const audioData = await getYoutubeAudio(ytUrl);
         
         await sock.sendMessage(chatId, {
             audio: audioData.buffer,
             mimetype: 'audio/mp4',
-            ptt: false
+            ptt: false,
+            caption: `🎵 Audio ready!\n> bigmanj`
         }, { quoted: message });
         
         await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } });
