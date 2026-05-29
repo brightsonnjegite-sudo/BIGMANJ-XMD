@@ -1,55 +1,221 @@
-const { execSync } = require('child_process');
+const isOwnerOrSudo = require('../lib/isOwner');
+const fs = require('fs/promises');
 const path = require('path');
 const axios = require('axios');
 
-module.exports = {
-  name: 'checkupdates',
-  aliases: ['checkupdate'],
-  category: 'owner',
-  sudo: true,
-  async execute(client, message, args) {
+// Auto-reminder config
+const REMINDER_FILE = path.join(__dirname, '../data/updateReminder.json');
+let reminderCache = null;
+
+async function loadReminder() {
+    if (reminderCache) return reminderCache;
     try {
-      // 1. Pata commit ya sasa (local) kwa kutumia git
-      let currentSha;
-      try {
-        currentSha = execSync('git rev-parse HEAD', {
-          encoding: 'utf8',
-          cwd: path.join(__dirname, '..')
-        }).trim();
-        if (!currentSha.match(/^[a-f0-9]{40}$/)) throw new Error('Invalid commit hash');
-      } catch (gitErr) {
-        console.error('Git error:', gitErr.message);
-        await message.reply('❌ Bot haikuwekwa kwa `git clone`. Tafadhali clone repo kwa git ili kutumia amri hii.');
-        return;
-      }
-
-      // 2. Pata commit ya mwisho kutoka GitHub API
-      const repoOwner = 'brightsonnjegite-sudo';
-      const repoName = 'Mickey-Glitch';
-      const branch = 'main'; // Ikiwa repo inatumia 'master', badilisha hapa
-
-      const apiUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/commits/${branch}`;
-      const { data } = await axios.get(apiUrl, {
-        headers: { 'User-Agent': 'WhatsAppBot-UpdateChecker' }
-      });
-      const latestSha = data.sha;
-
-      // 3. Linganisha
-      if (currentSha === latestSha) {
-        await message.reply(`✅ Bot iko updated!\nToleo lako: \`${currentSha.slice(0, 7)}\``);
-      } else {
-        const compareUrl = `https://github.com/${repoOwner}/${repoName}/compare/${currentSha}...${latestSha}`;
-        await message.reply(
-          `🔄 *Update inapatikana!*\n\n` +
-          `Toleo lako: \`${currentSha.slice(0, 7)}\`\n` +
-          `Toleo jipya: \`${latestSha.slice(0, 7)}\`\n\n` +
-          `📝 [Angalia mabadiliko](${compareUrl})\n\n` +
-          `Ili kuboresha, tumia \`.pullupdate\` (kama ipo) au fanya \`git pull\` manually.`
-        );
-      }
-    } catch (error) {
-      console.error('Hitilafu ya kuangalia updates:', error);
-      await message.reply('❌ Imeshindwa kuangalia updates. Tazama console kwa maelezo.');
+        const data = await fs.readFile(REMINDER_FILE, 'utf8');
+        reminderCache = JSON.parse(data);
+    } catch {
+        reminderCache = { lastCheck: null, updateFound: false, updateHash: null, autoReminder: false };
+        await saveReminder();
     }
-  }
-};
+    return reminderCache;
+}
+
+async function saveReminder() {
+    try {
+        await fs.mkdir(path.dirname(REMINDER_FILE), { recursive: true });
+        await fs.writeFile(REMINDER_FILE, JSON.stringify(reminderCache, null, 2));
+    } catch (err) {
+        console.error('[UpdateReminder] Save failed:', err.message);
+    }
+}
+
+function generateUpdateHash(files, mode) {
+    const summary = `${mode}:${files.length}:${files.slice(0, 3).join(',')}`;
+    return Buffer.from(summary).toString('base64');
+}
+
+function categorizeChanges(files) {
+    const categories = { commands: [], core: [], lib: [], other: [] };
+    files.forEach(f => {
+        if (f.startsWith('commands/')) categories.commands.push(f);
+        else if (['index.js', 'main.js', 'server.js', 'config.js', 'settings.js'].includes(f)) categories.core.push(f);
+        else if (f.startsWith('lib/')) categories.lib.push(f);
+        else categories.other.push(f);
+    });
+    return categories;
+}
+
+function formatUpdateInfo(res) {
+    let message = '🔄 *UPDATE CHECK RESULT*\n\n';
+    if (!res || res.mode === 'none') {
+        return '✅ *No updates available* — Your bot is up to date!';
+    }
+    const updateType = res.mode === 'git' ? 'GIT' : 'ZIP';
+    message += `📦 *Update Type:* ${updateType}\n`;
+    message += `📅 *Time:* ${new Date().toLocaleString()}\n\n`;
+    if (res.mode === 'git') {
+        const allFiles = res.files ? res.files.split('\n').map(f => f.trim()).filter(Boolean) : [];
+        const total = allFiles.length;
+        const categories = categorizeChanges(allFiles);
+        if (res.available) {
+            message += `🟢 *STATUS:* UPDATE AVAILABLE\n\n`;
+            message += `📊 *Changes Summary:*\n`;
+            message += `  • Total files: ${total}\n`;
+            if (categories.commands.length > 0) {
+                message += `  • Commands: ${categories.commands.length} ${categories.commands.length > 3 ? `(${categories.commands.slice(0, 2).join(', ')} +${categories.commands.length - 2})` : `(${categories.commands.join(', ')})`}\n`;
+            }
+            if (categories.core.length > 0) {
+                message += `  • Core files: ${categories.core.length} (${categories.core.join(', ')})\n`;
+            }
+            if (categories.lib.length > 0) {
+                message += `  • Libraries: ${categories.lib.length}\n`;
+            }
+            if (categories.other.length > 0) {
+                message += `  • Other: ${categories.other.length}\n`;
+            }
+            message += `\n💡 *Use .update to install now*`;
+            return message;
+        } else {
+            return `✅ *No updates available* — All files are up to date`;
+        }
+    }
+    if (res.mode === 'zip') {
+        if (res.available) {
+            message += `🟢 *STATUS:* UPDATE AVAILABLE\n\n`;
+            const meta = res.remoteMeta;
+            message += `📁 *URL:* ${meta.url || 'Not available'}\n`;
+            if (res.changes) {
+                const { added = [], removed = [], modified = [] } = res.changes;
+                const all = [...added, ...removed, ...modified].map(f => f.trim()).filter(Boolean);
+                const total = all.length;
+                const categories = categorizeChanges(all);
+                message += `\n📊 *Changes Summary:*\n`;
+                message += `  • Total files: ${total}\n`;
+                message += `  • Added: ${added.length}\n`;
+                message += `  • Modified: ${modified.length}\n`;
+                message += `  • Removed: ${removed.length}\n`;
+                if (categories.commands.length > 0) {
+                    message += `  • Commands affected: ${categories.commands.length}\n`;
+                }
+                if (categories.core.length > 0) {
+                    message += `  • Core changes: ${categories.core.length}\n`;
+                }
+            }
+            message += `\n💡 *Use .update to install now*`;
+            return message;
+        } else {
+            return `✅ *No updates available* — Your bot is up to date`;
+        }
+    }
+    return message;
+}
+
+async function checkForUpdates() {
+    try {
+        const repoOwner = 'brightsonnjegite-sudo';
+        const repoName = 'Mickey-Glitch';
+        
+        const response = await axios.get(`https://api.github.com/repos/${repoOwner}/${repoName}/commits`, {
+            headers: { 'User-Agent': 'MickeyBot' },
+            params: { per_page: 1 }
+        });
+        
+        if (response.data && response.data.length > 0) {
+            const latestCommit = response.data[0];
+            const latestSha = latestCommit.sha;
+            
+            let currentSha = null;
+            try {
+                const versionFile = path.join(__dirname, '../data/currentVersion.json');
+                const versionData = await fs.readFile(versionFile, 'utf8');
+                currentSha = JSON.parse(versionData).sha;
+            } catch (e) {
+                currentSha = null;
+            }
+            
+            const isUpdateAvailable = currentSha && latestSha !== currentSha;
+            
+            let changedFiles = [];
+            if (isUpdateAvailable && currentSha) {
+                const compareResponse = await axios.get(`https://api.github.com/repos/${repoOwner}/${repoName}/compare/${currentSha}...${latestSha}`, {
+                    headers: { 'User-Agent': 'MickeyBot' }
+                });
+                changedFiles = compareResponse.data.files.map(f => f.filename);
+            }
+            
+            return {
+                available: isUpdateAvailable,
+                mode: 'git',
+                files: changedFiles.join('\n'),
+                version: latestSha,
+                currentVersion: currentSha
+            };
+        }
+        return { available: false, mode: 'none' };
+    } catch (err) {
+        console.error('Update check error:', err);
+        return { available: false, mode: 'none', error: err.message };
+    }
+}
+
+async function checkUpdatesCommand(sock, chatId, message, args = []) {
+    const senderId = message.key.participant || message.key.remoteJid;
+    const isOwner = await isOwnerOrSudo(senderId, sock, chatId);
+
+    if (!message.key.fromMe && !isOwner) {
+        await sock.sendMessage(chatId, { text: 'Only bot owner or sudo can use .checkupdates' }, { quoted: message });
+        return;
+    }
+
+    const reminder = await loadReminder();
+    const cmd = (args[0] || '').toLowerCase();
+
+    if (cmd === 'auto') {
+        const enabled = reminder.autoReminder = !reminder.autoReminder;
+        await saveReminder();
+        await sock.sendMessage(chatId, {
+            text: `✅ Auto update reminders ${enabled ? 'ENABLED' : 'DISABLED'} — I will notify you every time an update is available`
+        }, { quoted: message });
+        return;
+    }
+
+    if (cmd === 'status') {
+        const status = reminder.autoReminder ? '✅ ENABLED' : '❌ DISABLED';
+        await sock.sendMessage(chatId, {
+            text: `📢 *Update Reminder Status:* ${status}\n\n💡 Use .checkupdates auto to toggle`
+        }, { quoted: message });
+        return;
+    }
+
+    try {
+        const res = await checkForUpdates();
+        const updateHash = res && res.files ? generateUpdateHash(res.files.split('\n'), res.mode) : null;
+
+        const updateMsg = formatUpdateInfo(res);
+        await sock.sendMessage(chatId, { text: updateMsg }, { quoted: message });
+
+        if (res && res.available) {
+            if (updateHash !== reminder.updateHash) {
+                reminder.updateFound = true;
+                reminder.updateHash = updateHash;
+                reminder.lastCheck = new Date().toISOString();
+                await saveReminder();
+                if (reminder.autoReminder) {
+                    await sock.sendMessage(chatId, {
+                        text: `🔔 *QUICK REMINDER*\n\nA new update is available! Type .update to install it now.`
+                    });
+                }
+            }
+        } else {
+            reminder.updateFound = false;
+            reminder.updateHash = null;
+            await saveReminder();
+        }
+    } catch (err) {
+        console.error('CheckUpdates failed:', err);
+        await sock.sendMessage(chatId, {
+            text: `❌ *Update Check Failed*\n\nError: ${err.message || err}\n\n💡 Make sure you have internet connection and try again.`
+        }, { quoted: message });
+    }
+}
+
+module.exports = checkUpdatesCommand;
