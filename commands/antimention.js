@@ -19,25 +19,16 @@ function saveData(data) {
     fs.writeFileSync(DATA_PATH, JSON.stringify(data, null, 2));
 }
 
-// Get protected numbers from settings.js (owner + sudo)
-function getProtectedNumbers() {
-    const numbers = [];
-    if (settings.ownerNumber) numbers.push(settings.ownerNumber);
-    if (settings.sudoNumbers && Array.isArray(settings.sudoNumbers)) {
-        numbers.push(...settings.sudoNumbers);
-    }
-    return numbers.map(num => {
-        let clean = num.toString().replace(/\s/g, '');
-        if (!clean.includes('@')) clean = `${clean}@s.whatsapp.net`;
-        return clean;
-    });
-}
-
-// Check if a string contains a phone number (Tanzanian or international format)
+// Check if message text contains a phone number (Tanzanian or international)
 function containsPhoneNumber(text) {
-    // Regex for phone numbers: +255... or 0... (with spaces optional)
     const phoneRegex = /(?:\+?255|0)[\s\-]?[0-9]{2}[\s\-]?[0-9]{3}[\s\-]?[0-9]{4,}/;
     return phoneRegex.test(text);
+}
+
+// Check if message contains group mention phrases
+function containsGroupMention(text) {
+    const groupPhrases = /(this group was mentioned|group mentioned|@everyone|@all|group link)/i;
+    return groupPhrases.test(text);
 }
 
 async function antimentionCommand(sock, chatId, message, args) {
@@ -63,7 +54,7 @@ async function antimentionCommand(sock, chatId, message, args) {
     if (sub === 'on') {
         data.groups[chatId].enabled = true;
         saveData(data);
-        await sock.sendMessage(chatId, { text: '🛡️ *Anti‑mention IMEWASHWA* – ujumbe unaomention owner/sudo au namba za simu utafutwa.' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: '🛡️ *Anti‑mention IMEWASHWA* – ujumbe unaomention mtu yeyote, namba za simu, au group mention utafutwa.' }, { quoted: message });
     } else if (sub === 'off') {
         data.groups[chatId].enabled = false;
         saveData(data);
@@ -74,26 +65,28 @@ async function antimentionCommand(sock, chatId, message, args) {
     }
 }
 
-// Function to check and delete mentions (called from main handler)
 async function handleMentionCheck(sock, chatId, message) {
     const data = loadData();
     if (!data.groups[chatId] || !data.groups[chatId].enabled) return;
 
-    // 1. Check for mentioned owner/sudo numbers
-    const protectedJids = getProtectedNumbers();
-    const mentionedJids = message.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
-    const mentionsViolation = protectedJids.some(jid => mentionedJids.includes(jid));
-
-    // 2. Check message text for any phone number pattern
+    // Get message text
     let messageText = '';
     if (message.message?.conversation) messageText = message.message.conversation;
     else if (message.message?.extendedTextMessage?.text) messageText = message.message.extendedTextMessage.text;
     else if (message.message?.imageMessage?.caption) messageText = message.message.imageMessage.caption;
     else if (message.message?.videoMessage?.caption) messageText = message.message.videoMessage.caption;
-    
-    const phoneViolation = containsPhoneNumber(messageText);
 
-    if (mentionsViolation || phoneViolation) {
+    // Check for any mention (tagging any user)
+    const mentionedJids = message.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+    const hasAnyMention = mentionedJids.length > 0;
+
+    // Check for phone numbers
+    const hasPhoneNumber = containsPhoneNumber(messageText);
+
+    // Check for group mention phrases
+    const hasGroupMention = containsGroupMention(messageText);
+
+    if (hasAnyMention || hasPhoneNumber || hasGroupMention) {
         // Delete the offending message
         try {
             await sock.sendMessage(chatId, { delete: message.key });
@@ -101,7 +94,7 @@ async function handleMentionCheck(sock, chatId, message) {
             console.error('Failed to delete message:', err);
         }
         // Optional warning
-        await sock.sendMessage(chatId, { text: `⚠️ *Anti‑mention*\nUjumbe wako umeondolewa kwa sababu ulijumuisha namba ya simu au kumtag mtu aliyelindwa.` });
+        await sock.sendMessage(chatId, { text: `⚠️ *Anti‑mention*\nUjumbe wako umeondolewa kwa sababu ulijumuisha tag, namba ya simu, au group mention.` });
     }
 }
 
