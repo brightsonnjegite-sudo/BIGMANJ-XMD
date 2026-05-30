@@ -5,27 +5,39 @@ async function checkAdminsCommand(sock, chatId, message) {
             return;
         }
 
+        // Fetch group metadata (works even if bot is not admin, as long as it's a member)
         const groupMetadata = await sock.groupMetadata(chatId);
         const admins = groupMetadata.participants.filter(p => p.admin === 'admin' || p.admin === 'superadmin');
-        
+
         if (admins.length === 0) {
             await sock.sendMessage(chatId, { text: '👥 No admins found in this group.' }, { quoted: message });
             return;
         }
 
+        // Build the admin list with mentions
         let adminList = '👑 *GROUP ADMINS* 👑\n\n';
+        const mentions = [];
+
         admins.forEach((admin, index) => {
-            const name = admin.id.split('@')[0];
+            const jid = admin.id;
+            const name = jid.split('@')[0]; // just the number part
             const role = admin.admin === 'superadmin' ? '🌟 SUPER ADMIN' : '🔹 ADMIN';
-            adminList += `${index + 1}. ${name} (${role})\n`;
+            adminList += `${index + 1}. @${name} (${role})\n`;
+            mentions.push(jid);
         });
+
         adminList += `\n📌 Total: ${admins.length} admin(s)`;
         adminList += `\n\n> BIGMANj tech`;
 
-        await sock.sendMessage(chatId, { text: adminList }, { quoted: message });
+        // Send the message with mentions (tags the admins)
+        await sock.sendMessage(chatId, {
+            text: adminList,
+            mentions: mentions
+        }, { quoted: message });
+
     } catch (err) {
         console.error('Error in checkadmins command:', err);
-        await sock.sendMessage(chatId, { text: '❌ Failed to retrieve admin list.' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: '❌ Failed to retrieve admin list. Make sure the bot is a member of the group.' }, { quoted: message });
     }
 }
 
