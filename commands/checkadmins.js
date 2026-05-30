@@ -20,7 +20,7 @@ async function checkAdminsCommand(sock, chatId, message) {
             adminList += `${index + 1}. ${name} (${role})\n`;
         });
         adminList += `\n📌 Total: ${admins.length} admin(s)`;
-        adminList += `\n\n> BIGMANj tech`;  // ✅ Added footer
+        adminList += `\n\n> BIGMANj tech`;
 
         await sock.sendMessage(chatId, { text: adminList }, { quoted: message });
     } catch (err) {
