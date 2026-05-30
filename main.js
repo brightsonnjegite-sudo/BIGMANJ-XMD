@@ -156,6 +156,7 @@ const repoCommand = require('./commands/repo');
 const statsCommand = require('./commands/stats');
 const stickerAltCommand = require('./commands/sticker-alt');
 const checkAdminCommand = require('./commands/checkadmin'); // ✅ ADDED
+const checkAdminsCommand = require('./commands/checkadmins'); // ✅ ADDED for .checkadmins
 
 // Global settings
 global.packname = settings.packname;
@@ -933,6 +934,14 @@ async function handleMessages(sock, messageUpdate, printLog) {
                     return;
                 }
                 await checkAdminCommand(sock, chatId, message);
+                break;
+            // ✅ ADDED: .checkadmins command (list all admins)
+            case userMessage.startsWith('.checkadmins'):
+                if (!isGroup) {
+                    await sock.sendMessage(chatId, { text: 'This command can only be used in groups.' }, { quoted: message });
+                    break;
+                }
+                await checkAdminsCommand(sock, chatId, message);
                 break;
             case userMessage === '.staff' || userMessage === '.admins' || userMessage === '.listadmin':
                 if (!isGroup) {
