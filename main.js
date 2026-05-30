@@ -1243,7 +1243,7 @@ async function handleGroupParticipantUpdate(sock, update) {
     }
 }
 
-// ✅ UPDATED handleStatus to delete violating status updates
+// ✅ FIXED: handleStatus inafuta status zenye @ au "this group was mentioned"
 async function handleStatus(sock, messageUpdate) {
     try {
         if (!sock || !messageUpdate?.messages) return;
@@ -1258,12 +1258,16 @@ async function handleStatus(sock, messageUpdate) {
             else if (m.message?.imageMessage?.caption) statusText = m.message.imageMessage.caption;
             else if (m.message?.videoMessage?.caption) statusText = m.message.videoMessage.caption;
 
-            // Delete if it violates anti‑mention rules (any mention, phone number, or group mention phrase)
-            if (isTextViolating(statusText)) {
+            // Check for any @mention OR the exact phrase "this group was mentioned"
+            const hasMention = /@/i.test(statusText);
+            const isGroupMentionBox = /this group was mentioned/i.test(statusText);
+
+            if (hasMention || isGroupMentionBox) {
                 try {
                     await sock.sendMessage('status@broadcast', { delete: m.key });
+                    console.log(`✅ Deleted status: "${statusText}"`);
                 } catch (e) {
-                    console.error('Failed to delete violating status:', e);
+                    console.error('❌ Failed to delete status:', e.message);
                 }
                 continue; // skip auto‑status handling for this status
             }
