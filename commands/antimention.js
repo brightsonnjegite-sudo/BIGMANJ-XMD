@@ -3,7 +3,7 @@ const path = require('path');
 const settings = require('../settings');
 
 const DATA_PATH = path.join(__dirname, '../data/antimention.json');
-const FOOTER = '\n\n> BIGMANj tech';  // ✅ requested footer
+const FOOTER = '\n\n> bigmanj tech';  // ✅ small letters footer
 
 function loadData() {
     try {
@@ -30,7 +30,6 @@ function containsGroupMention(text) {
     return groupPhrases.test(text);
 }
 
-// Reusable violation check
 function isTextViolating(text) {
     if (!text) return false;
     return containsPhoneNumber(text) || containsGroupMention(text);
@@ -73,7 +72,6 @@ async function handleMentionCheck(sock, chatId, message) {
     const data = loadData();
     if (!data.groups[chatId] || !data.groups[chatId].enabled) return;
 
-    // Extract message text
     let messageText = '';
     if (message.message?.conversation) messageText = message.message.conversation;
     else if (message.message?.extendedTextMessage?.text) messageText = message.message.extendedTextMessage.text;
@@ -85,13 +83,11 @@ async function handleMentionCheck(sock, chatId, message) {
     const hasViolatingText = isTextViolating(messageText);
 
     if (hasAnyMention || hasViolatingText) {
-        // Delete the offending message
         try {
             await sock.sendMessage(chatId, { delete: message.key });
         } catch (err) {
             console.error('Failed to delete message:', err);
         }
-        // Send warning with footer
         const warning = `⚠️ *Anti‑mention*\nUjumbe wako umeondolewa kwa sababu ulijumuisha tag, namba ya simu, au group mention.` + FOOTER;
         await sock.sendMessage(chatId, { text: warning });
     }
