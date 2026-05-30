@@ -160,7 +160,8 @@ const checkAdminsCommand = require('./commands/checkadmins');
 const { antimentionCommand, handleMentionCheck, isTextViolating } = require('./commands/antimention'); // Anti‑mention for normal tags
 const { antimentionstatusCommand, handleStatusMentionCheck } = require('./commands/antimentionstatus'); // Status mention anti‑feature
 const toimgCommand = require('./commands/toimg'); // Convert sticker to image
-const listonlineCommand = require('./commands/listonline'); // ✅ ADDED for .listonline
+const listonlineCommand = require('./commands/listonline'); // .listonline command
+const { antibotCommand, handleAntiBotCheck } = require('./commands/antibot'); // ✅ ADDED for .antibot
 
 // Global settings
 global.packname = settings.packname;
@@ -256,6 +257,11 @@ async function handleMessages(sock, messageUpdate, printLog) {
         // 🛡️ Anti‑mention for status shares (mentions of status@broadcast)
         if (isGroup) {
             await handleStatusMentionCheck(sock, chatId, message);
+        }
+
+        // 🛡️ Anti‑Bot check (delete messages from other bots)
+        if (isGroup) {
+            await handleAntiBotCheck(sock, chatId, message);
         }
 
         // ✅ Mark the sender as online (every message resets their timer)
@@ -1026,6 +1032,11 @@ async function handleMessages(sock, messageUpdate, printLog) {
             // ✅ ADDED: .listonline command
             case userMessage.startsWith('.listonline'):
                 await listonlineCommand(sock, chatId, message);
+                break;
+            // ✅ ADDED: .antibot command
+            case userMessage.startsWith('.antibot'):
+                const antibotArgs = userMessage.split(' ').slice(1);
+                await antibotCommand(sock, chatId, message, antibotArgs);
                 break;
             case userMessage === '.staff' || userMessage === '.admins' || userMessage === '.listadmin':
                 if (!isGroup) {
