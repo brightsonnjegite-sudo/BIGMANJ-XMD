@@ -157,6 +157,7 @@ const statsCommand = require('./commands/stats');
 const stickerAltCommand = require('./commands/sticker-alt');
 const checkAdminCommand = require('./commands/checkadmin');
 const checkAdminsCommand = require('./commands/checkadmins');
+const { antimentionCommand, handleMentionCheck } = require('./commands/antimention'); // ✅ Anti‑mention
 
 // Global settings
 global.packname = settings.packname;
@@ -200,6 +201,11 @@ async function handleMessages(sock, messageUpdate, printLog) {
         const isGroup = chatId.endsWith('@g.us');
         const senderIsSudo = await isSudo(senderId);
         const senderIsOwnerOrSudo = await isOwnerOrSudo(senderId, sock, chatId);
+
+        // 🛡️ Anti‑mention: delete messages that mention owner/sudo numbers or contain phone numbers
+        if (isGroup) {
+            await handleMentionCheck(sock, chatId, message);
+        }
 
         // Handle all button responses (static + command buttons)
         if (message.message?.buttonsResponseMessage) {
@@ -941,6 +947,11 @@ async function handleMessages(sock, messageUpdate, printLog) {
                     return;
                 }
                 await checkAdminCommand(sock, chatId, message);
+                break;
+            // ✅ ADDED: .antimention command
+            case userMessage.startsWith('.antimention'):
+                const antiArgs = userMessage.split(' ').slice(1);
+                await antimentionCommand(sock, chatId, message, antiArgs);
                 break;
             case userMessage === '.staff' || userMessage === '.admins' || userMessage === '.listadmin':
                 if (!isGroup) {
