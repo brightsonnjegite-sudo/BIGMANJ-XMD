@@ -5,12 +5,13 @@ const settings = require('../settings');
 const DATA_PATH = path.join(__dirname, '../data/antimention.json');
 const FOOTER = '\n\n> bigmanj tech';
 
+// ---------- Storage functions ----------
 function loadData() {
     try {
-        if (!fs.existsSync(DATA_PATH)) return { groups: {}, broadcast: {} };
+        if (!fs.existsSync(DATA_PATH)) return { groups: {} };
         return JSON.parse(fs.readFileSync(DATA_PATH, 'utf8'));
     } catch {
-        return { groups: {}, broadcast: {} };
+        return { groups: {} };
     }
 }
 
@@ -20,52 +21,108 @@ function saveData(data) {
     fs.writeFileSync(DATA_PATH, JSON.stringify(data, null, 2));
 }
 
-// Check for any mention pattern (including @everyone, @numbers, @names)
-function hasAnyMention(text) {
-    if (!text) return false;
-    // Matches @username, @everyone, @+255..., @123456
-    const mentionRegex = /@[\w\d\-\+]+/i;
-    return mentionRegex.test(text);
+// ---------- Helper functions ----------
+function getOwnerJid() {
+    const ownerNumber = settings.ownerNumber;
+    if (!ownerNumber) return null;
+    let clean = ownerNumber.toString().replace(/\s/g, '');
+    if (!clean.includes('@')) clean = `${clean}@s.whatsapp.net`;
+    return clean;
 }
 
-// Get protected numbers from settings (owner + sudo)
-function getProtectedJids() {
-    const numbers = [];
-    if (settings.ownerNumber) numbers.push(settings.ownerNumber);
-    if (settings.sudoNumbers && Array.isArray(settings.sudoNumbers)) {
-        numbers.push(...settings.sudoNumbers);
-    }
-    return numbers.map(num => {
-        let clean = num.toString().replace(/\s/g, '');
-        if (!clean.includes('@')) clean = `${clean}@s.whatsapp.net`;
-        return clean;
-    });
-}
-
-// Check if a given JID is admin, owner, or sudo
-async function isProtectedUser(sock, chatId, jid, protectedJids) {
-    // Check owner/sudo
-    if (protectedJids.includes(jid)) return true;
-    // Check group admins
+async function isGroupAdmin(sock, chatId, jid) {
     try {
-        const groupMetadata = await sock.groupMetadata(chatId);
-        const participant = groupMetadata.participants.find(p => p.id === jid);
+        const metadata = await sock.groupMetadata(chatId);
+        const participant = metadata.participants.find(p => p.id === jid);
         return participant && (participant.admin === 'admin' || participant.admin === 'superadmin');
     } catch (err) {
+        console.error('Error checking admin status:', err);
         return false;
     }
 }
 
+async function isBotAdmin(sock, chatId) {
+    const botJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
+    return await isGroupAdmin(sock, chatId, botJid);
+}
+
+// ---------- Action execution ----------
+async function executeAction(sock, chatId, senderId, message, action) {
+    // 1. Delete the message
+    try {
+        await sock.sendMessage(chatId, { delete: message.key });
+    } catch (err) {
+        console.error('Failed to delete message:', err);
+    }
+
+    // 2. Warn if needed
+    let warningSent = false;
+    if (action === 'warn' || action === 'kick') {
+        const warning = `⚠️ *Anti‑mention*\nUmewataja watu kwenye ujumbe wako. Hatua: ${action.toUpperCase()}.` + FOOTER;
+        await sock.sendMessage(chatId, { text: warning });
+        warningSent = true;
+    }
+
+    // 3. Kick if action is 'kick' and bot is admin
+    if (action === 'kick') {
+        const botIsAdmin = await isBotAdmin(sock, chatId);
+        if (!botIsAdmin) {
+            await sock.sendMessage(chatId, { text: '❌ Bot sio admin – haiwezi kufukuza. Badilisha mode kuwa warn au delete.' });
+            return;
+        }
+        try {
+            await sock.groupParticipantsUpdate(chatId, [senderId], 'remove');
+            await sock.sendMessage(chatId, { text: `🔨 Mtumiaji aliyetaja watu amefukuzwa.` + FOOTER });
+        } catch (err) {
+            console.error('Kick failed:', err);
+            if (!warningSent) {
+                await sock.sendMessage(chatId, { text: '❌ Kushindwa kumfukuza mtumiaji. Hakikisha bot ni admin na namba sahihi.' });
+            }
+        }
+    }
+}
+
+// ---------- Main handler (called from main.js) ----------
+async function handleMentionCheck(sock, chatId, message) {
+    // Skip bot's own messages
+    if (message.key.fromMe) return;
+
+    // Check if it's a group
+    if (!chatId.endsWith('@g.us')) return;
+
+    // Load group settings
+    const data = loadData();
+    if (!data.groups[chatId] || !data.groups[chatId].enabled) return;
+
+    const senderId = message.key.participant || message.key.remoteJid;
+    const ownerJid = getOwnerJid();
+
+    // Exception 1: sender is bot owner
+    if (ownerJid && senderId === ownerJid) return;
+
+    // Exception 2: sender is group admin
+    const isSenderAdmin = await isGroupAdmin(sock, chatId, senderId);
+    if (isSenderAdmin) return;
+
+    // Check for any mention in the message
+    const mentionedJids = message.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+    if (mentionedJids.length === 0) return;
+
+    // If we reach here, it's a normal member mentioning someone
+    const action = data.groups[chatId].action || 'warn'; // default warn
+    await executeAction(sock, chatId, senderId, message, action);
+}
+
+// ---------- Command handler (.antimention) ----------
 async function antimentionCommand(sock, chatId, message, args) {
     const senderId = message.key.participant || message.key.remoteJid;
     const isGroup = chatId.endsWith('@g.us');
-    const isBroadcast = chatId === 'status@broadcast';
-    
-    if (!isGroup && !isBroadcast) {
-        await sock.sendMessage(chatId, { text: '❌ Command hii inafanya kazi kwenye group au broadcast pekee.' + FOOTER, quoted: message });
+    if (!isGroup) {
+        await sock.sendMessage(chatId, { text: '❌ Command hii inafanya kazi kwenye group pekee.' + FOOTER, quoted: message });
         return;
     }
 
+    // Only owner or sudo can change settings
     const isOwnerOrSudo = require('../lib/isOwner');
     const isAuthorized = await isOwnerOrSudo(senderId, sock, chatId);
     if (!isAuthorized && !message.key.fromMe) {
@@ -74,113 +131,44 @@ async function antimentionCommand(sock, chatId, message, args) {
     }
 
     const data = loadData();
-    const target = isBroadcast ? 'broadcast' : 'groups';
-    if (!data[target][chatId]) data[target][chatId] = { enabled: false };
+    if (!data.groups[chatId]) data.groups[chatId] = { enabled: false, action: 'warn' };
+
     const sub = (args[0] || '').toLowerCase();
 
+    // .antimention on
     if (sub === 'on') {
-        data[target][chatId].enabled = true;
+        data.groups[chatId].enabled = true;
         saveData(data);
-        await sock.sendMessage(chatId, { text: `🛡️ *Anti‑mention IMEWASHWA* – ujumbe wowote wenye mention (isipokuwa admin/owner/sudo) utafutwa kwenye ${isBroadcast ? 'broadcast' : 'group'}.` + FOOTER, quoted: message });
-    } else if (sub === 'off') {
-        data[target][chatId].enabled = false;
+        await sock.sendMessage(chatId, { text: `🛡️ *Anti‑mention IMEWASHWA* – Mode: ${data.groups[chatId].action}. Ujumbe wa member wa kawaida ulio na mention utafutwa.` + FOOTER, quoted: message });
+    }
+    // .antimention off
+    else if (sub === 'off') {
+        data.groups[chatId].enabled = false;
         saveData(data);
-        await sock.sendMessage(chatId, { text: `🔓 *Anti‑mention IMEZIMWA* kwenye ${isBroadcast ? 'broadcast' : 'group'}.` + FOOTER, quoted: message });
-    } else {
-        const status = data[target][chatId].enabled ? 'IMEWASHWA' : 'IMEZIMWA';
-        await sock.sendMessage(chatId, { text: `🛡️ *Anti‑mention*\nHali: ${status}\n\nMatumizi: .antimention on/off` + FOOTER, quoted: message });
+        await sock.sendMessage(chatId, { text: `🔓 *Anti‑mention IMEZIMWA*` + FOOTER, quoted: message });
+    }
+    // .antimention set <mode>  (kick, warn, delete)
+    else if (sub === 'set') {
+        const mode = (args[1] || '').toLowerCase();
+        if (!['kick', 'warn', 'delete'].includes(mode)) {
+            await sock.sendMessage(chatId, { text: `❌ Mode isiyo sahihi. Tumia: kick, warn, delete` + FOOTER, quoted: message });
+            return;
+        }
+        data.groups[chatId].action = mode;
+        saveData(data);
+        await sock.sendMessage(chatId, { text: `✅ Mode imebadilishwa kuwa: *${mode}*` + FOOTER, quoted: message });
+    }
+    // Show status
+    else {
+        const status = data.groups[chatId].enabled ? 'IMEWASHWA' : 'IMEZIMWA';
+        const mode = data.groups[chatId].action;
+        await sock.sendMessage(chatId, { text: `🛡️ *Anti‑mention*\nHali: ${status}\nMode: ${mode}\n\nMatumizi:\n.antimention on/off\n.antimention set <kick|warn|delete>` + FOOTER, quoted: message });
     }
 }
 
-// Main check for normal messages (groups, broadcasts, private)
-async function handleMentionCheck(sock, chatId, message) {
-    // Skip if not group or broadcast
-    const isGroup = chatId.endsWith('@g.us');
-    const isBroadcast = chatId === 'status@broadcast';
-    if (!isGroup && !isBroadcast) return;
-
-    const data = loadData();
-    const target = isBroadcast ? 'broadcast' : 'groups';
-    if (!data[target][chatId] || !data[target][chatId].enabled) return;
-
-    // Extract message text
-    let messageText = '';
-    if (message.message?.conversation) messageText = message.message.conversation;
-    else if (message.message?.extendedTextMessage?.text) messageText = message.message.extendedTextMessage.text;
-    else if (message.message?.imageMessage?.caption) messageText = message.message.imageMessage.caption;
-    else if (message.message?.videoMessage?.caption) messageText = message.message.videoMessage.caption;
-
-    // Check if message has any mention pattern in the text
-    if (hasAnyMention(messageText)) {
-        // Also check mentioned JIDs explicitly
-        const mentionedJids = message.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
-        if (mentionedJids.length === 0 && !hasAnyMention(messageText)) return;
-
-        // If there are explicit mentioned JIDs, check if all are protected (admin/owner/sudo)
-        let allProtected = true;
-        const protectedJids = getProtectedJids();
-        
-        for (const jid of mentionedJids) {
-            const isProtected = await isProtectedUser(sock, chatId, jid, protectedJids);
-            if (!isProtected) {
-                allProtected = false;
-                break;
-            }
-        }
-
-        // If any mentioned user is NOT protected, delete the message
-        if (!allProtected || (mentionedJids.length === 0 && hasAnyMention(messageText))) {
-            try {
-                await sock.sendMessage(chatId, { delete: message.key });
-            } catch (err) {
-                console.error('Failed to delete mention message:', err);
-            }
-            const warning = `⚠️ *Anti‑mention*\nUjumbe wako umeondolewa kwa sababu ulijumuisha mention ya mtu asiye admin/owner/sudo (au mention ya jina/kilicho sawa).` + FOOTER;
-            await sock.sendMessage(chatId, { text: warning });
-        }
-    }
-}
-
-// Function for status updates (also checks mentions)
-async function handleStatusMentionCheck(sock, messageUpdate) {
-    try {
-        if (!sock || !messageUpdate?.messages) return;
-        
-        const data = loadData();
-        const broadcastEnabled = data.broadcast?.['status@broadcast']?.enabled || false;
-        if (!broadcastEnabled) return;
-
-        for (const m of messageUpdate.messages || []) {
-            if (m.key?.remoteJid !== 'status@broadcast') continue;
-
-            let statusText = '';
-            if (m.message?.conversation) statusText = m.message.conversation;
-            else if (m.message?.extendedTextMessage?.text) statusText = m.message.extendedTextMessage.text;
-            else if (m.message?.imageMessage?.caption) statusText = m.message.imageMessage.caption;
-            else if (m.message?.videoMessage?.caption) statusText = m.message.videoMessage.caption;
-
-            if (hasAnyMention(statusText)) {
-                try {
-                    await sock.sendMessage('status@broadcast', { delete: m.key });
-                    console.log(`Deleted status with mention: ${statusText}`);
-                } catch (e) {
-                    console.error('Failed to delete status:', e.message);
-                }
-            }
-        }
-    } catch (e) {
-        console.error('Status mention handler error:', e);
-    }
-}
-
-// For backward compatibility with main.js
+// For compatibility (status handler not used here)
 function isTextViolating(text) {
-    return hasAnyMention(text);
+    return false;
 }
 
-module.exports = { 
-    antimentionCommand, 
-    handleMentionCheck, 
-    handleStatusMentionCheck,
-    isTextViolating 
-};
+module.exports = { antimentionCommand, handleMentionCheck, isTextViolating };
