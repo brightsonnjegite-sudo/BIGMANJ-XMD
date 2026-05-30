@@ -5,7 +5,7 @@ async function checkAdminsCommand(sock, chatId, message) {
             return;
         }
 
-        // Fetch group metadata (works even if bot is not admin, as long as it's a member)
+        // Fetch group metadata (bot only needs to be a member, not admin)
         const groupMetadata = await sock.groupMetadata(chatId);
         const admins = groupMetadata.participants.filter(p => p.admin === 'admin' || p.admin === 'superadmin');
 
@@ -14,13 +14,12 @@ async function checkAdminsCommand(sock, chatId, message) {
             return;
         }
 
-        // Build the admin list with mentions
         let adminList = '👑 *GROUP ADMINS* 👑\n\n';
         const mentions = [];
 
         admins.forEach((admin, index) => {
             const jid = admin.id;
-            const name = jid.split('@')[0]; // just the number part
+            const name = jid.split('@')[0];
             const role = admin.admin === 'superadmin' ? '🌟 SUPER ADMIN' : '🔹 ADMIN';
             adminList += `${index + 1}. @${name} (${role})\n`;
             mentions.push(jid);
@@ -29,7 +28,7 @@ async function checkAdminsCommand(sock, chatId, message) {
         adminList += `\n📌 Total: ${admins.length} admin(s)`;
         adminList += `\n\n> BIGMANj tech`;
 
-        // Send the message with mentions (tags the admins)
+        // Send message with actual mentions (tags)
         await sock.sendMessage(chatId, {
             text: adminList,
             mentions: mentions
