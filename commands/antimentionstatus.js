@@ -5,7 +5,6 @@ const settings = require('../settings');
 const DATA_PATH = path.join(__dirname, '../data/antimentionstatus.json');
 const FOOTER = '\n\n> bigmanj tech';
 
-// ---------- Storage functions ----------
 function loadData() {
     try {
         if (!fs.existsSync(DATA_PATH)) return { groups: {} };
@@ -21,7 +20,6 @@ function saveData(data) {
     fs.writeFileSync(DATA_PATH, JSON.stringify(data, null, 2));
 }
 
-// ---------- Helper functions ----------
 function getOwnerJid() {
     const ownerNumber = settings.ownerNumber;
     if (!ownerNumber) return null;
@@ -46,28 +44,26 @@ async function isBotAdmin(sock, chatId) {
     return await isGroupAdmin(sock, chatId, botJid);
 }
 
-// ---------- Action execution ----------
 async function executeAction(sock, chatId, senderId, message, action) {
-    // 1. Delete the message
+    // Delete the message
     try {
         await sock.sendMessage(chatId, { delete: message.key });
     } catch (err) {
         console.error('Failed to delete status mention message:', err);
     }
 
-    // 2. Warn if needed
-    let warningSent = false;
-    if (action === 'delete warn' || action === 'delete warn kick') {
-        const warning = `⚠️ *Anti‑StatusMention*\nUmewashiriki status kwenye group. Hatua: ${action.toUpperCase()}.` + FOOTER;
-        await sock.sendMessage(chatId, { text: warning });
-        warningSent = true;
-    }
+    if (action === 'deleteonly') return; // no warning, no kick
 
-    // 3. Kick if action includes kick
-    if (action === 'delete warn kick') {
+    if (action === 'deletewarn') {
+        const warning = `⚠️ *Anti‑StatusMention*\nUmewashiriki status kwenye group. Hatua: WARNING.` + FOOTER;
+        await sock.sendMessage(chatId, { text: warning });
+    }
+    else if (action === 'deletewarnkick') {
+        const warning = `⚠️ *Anti‑StatusMention*\nUmewashiriki status kwenye group. Hatua: KICK.` + FOOTER;
+        await sock.sendMessage(chatId, { text: warning });
         const botIsAdmin = await isBotAdmin(sock, chatId);
         if (!botIsAdmin) {
-            await sock.sendMessage(chatId, { text: '❌ Bot sio admin – haiwezi kufukuza. Badilisha mode kuwa delete warn au delete only.' });
+            await sock.sendMessage(chatId, { text: '❌ Bot sio admin – haiwezi kufukuza. Badilisha mode kuwa deletewarn au deleteonly.' });
             return;
         }
         try {
@@ -75,44 +71,35 @@ async function executeAction(sock, chatId, senderId, message, action) {
             await sock.sendMessage(chatId, { text: `🔨 Mtumiaji aliyeshiriki status amefukuzwa.` + FOOTER });
         } catch (err) {
             console.error('Kick failed:', err);
-            if (!warningSent) {
-                await sock.sendMessage(chatId, { text: '❌ Kushindwa kumfukuza mtumiaji. Hakikisha bot ni admin na namba sahihi.' });
-            }
         }
     }
 }
 
-// ---------- Main handler (called from main.js for each group message) ----------
+// Called from main.js for each group message
 async function handleStatusMentionCheck(sock, chatId, message) {
-    // Skip bot's own messages
     if (message.key.fromMe) return;
-
-    // Only for groups
     if (!chatId.endsWith('@g.us')) return;
 
-    // Load group settings
     const data = loadData();
     if (!data.groups[chatId] || !data.groups[chatId].enabled) return;
 
-    // Detect status mention: look for mention of 'status@broadcast'
     const mentionedJids = message.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
     const isStatusMention = mentionedJids.includes('status@broadcast');
-
     if (!isStatusMention) return;
 
     const senderId = message.key.participant || message.key.remoteJid;
     const ownerJid = getOwnerJid();
 
-    // Rule 1: Sender is group admin → do nothing (allow)
+    // Admin: allow (no action)
     const isSenderAdmin = await isGroupAdmin(sock, chatId, senderId);
     if (isSenderAdmin) {
         console.log(`Admin ${senderId} shared a status – allowed.`);
         return;
     }
 
-    // Rule 2: Sender is bot owner → delete message only (no warning, no kick)
+    // Bot owner: delete only (no warning, no kick)
     if (ownerJid && senderId === ownerJid) {
-        console.log(`Bot owner ${senderId} shared a status – deleting message.`);
+        console.log(`Owner ${senderId} shared a status – deleting only.`);
         try {
             await sock.sendMessage(chatId, { delete: message.key });
         } catch (err) {
@@ -121,12 +108,12 @@ async function handleStatusMentionCheck(sock, chatId, message) {
         return;
     }
 
-    // Rule 3: Normal member → apply action based on mode
-    const action = data.groups[chatId].action || 'delete warn'; // default
+    // Normal member: apply configured action
+    const action = data.groups[chatId].action || 'deletewarn';
     await executeAction(sock, chatId, senderId, message, action);
 }
 
-// ---------- Command handler (.antimentionstatus) ----------
+// Command handler for .antimentionstatus
 async function antimentionstatusCommand(sock, chatId, message, args) {
     const senderId = message.key.participant || message.key.remoteJid;
     const isGroup = chatId.endsWith('@g.us');
@@ -135,7 +122,6 @@ async function antimentionstatusCommand(sock, chatId, message, args) {
         return;
     }
 
-    // Only owner or sudo can change settings
     const isOwnerOrSudo = require('../lib/isOwner');
     const isAuthorized = await isOwnerOrSudo(senderId, sock, chatId);
     if (!isAuthorized && !message.key.fromMe) {
@@ -144,33 +130,27 @@ async function antimentionstatusCommand(sock, chatId, message, args) {
     }
 
     const data = loadData();
-    if (!data.groups[chatId]) data.groups[chatId] = { enabled: false, action: 'delete warn' };
+    if (!data.groups[chatId]) data.groups[chatId] = { enabled: false, action: 'deletewarn' };
 
     const sub = (args[0] || '').toLowerCase();
 
-    // .antimentionstatus on
     if (sub === 'on') {
         data.groups[chatId].enabled = true;
         saveData(data);
-        await sock.sendMessage(chatId, { text: `🛡️ *Anti‑StatusMention IMEWASHWA* – Mode: ${data.groups[chatId].action}. Ushirikiano wa status utafutwa kulingana na sheria.` + FOOTER, quoted: message });
+        await sock.sendMessage(chatId, { text: `🛡️ *Anti‑StatusMention IMEWASHWA* – Mode: ${data.groups[chatId].action}.` + FOOTER, quoted: message });
     }
-    // .antimentionstatus off
     else if (sub === 'off') {
         data.groups[chatId].enabled = false;
         saveData(data);
         await sock.sendMessage(chatId, { text: `🔓 *Anti‑StatusMention IMEZIMWA*` + FOOTER, quoted: message });
     }
-    // .antimentionstatus set <mode>
     else if (sub === 'set') {
-        const modeArg = (args[1] || '').toLowerCase();
+        const mode = (args[1] || '').toLowerCase();
         let action;
-        if (modeArg === 'deletewarnkick' || modeArg === 'delete warn kick') {
-            action = 'delete warn kick';
-        } else if (modeArg === 'deletewarn' || modeArg === 'delete warn') {
-            action = 'delete warn';
-        } else if (modeArg === 'deleteonly' || modeArg === 'delete only') {
-            action = 'delete only';
-        } else {
+        if (mode === 'deletewarnkick') action = 'deletewarnkick';
+        else if (mode === 'deletewarn') action = 'deletewarn';
+        else if (mode === 'deleteonly') action = 'deleteonly';
+        else {
             await sock.sendMessage(chatId, { text: `❌ Mode isiyo sahihi. Tumia: deletewarnkick, deletewarn, deleteonly` + FOOTER, quoted: message });
             return;
         }
@@ -178,7 +158,6 @@ async function antimentionstatusCommand(sock, chatId, message, args) {
         saveData(data);
         await sock.sendMessage(chatId, { text: `✅ Mode imebadilishwa kuwa: *${action}*` + FOOTER, quoted: message });
     }
-    // Show status
     else {
         const status = data.groups[chatId].enabled ? 'IMEWASHWA' : 'IMEZIMWA';
         const mode = data.groups[chatId].action;
