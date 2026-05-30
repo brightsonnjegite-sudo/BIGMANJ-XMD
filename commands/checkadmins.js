@@ -1,20 +1,20 @@
 async function checkAdminsCommand(sock, chatId, message) {
     try {
         if (!chatId.endsWith('@g.us')) {
-            await sock.sendMessage(chatId, { text: '❌ This command can only be used in groups.' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: '❌ Command hii inafanya kazi kwenye group pekee.' }, { quoted: message });
             return;
         }
 
-        // Fetch group metadata (bot only needs to be a member, not admin)
+        // Fetch group metadata – inafanya kazi hata kama bot si admin, ilimradi ni member
         const groupMetadata = await sock.groupMetadata(chatId);
         const admins = groupMetadata.participants.filter(p => p.admin === 'admin' || p.admin === 'superadmin');
 
         if (admins.length === 0) {
-            await sock.sendMessage(chatId, { text: '👥 No admins found in this group.' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: '👥 Hakuna admin katika group hili.' }, { quoted: message });
             return;
         }
 
-        let adminList = '👑 *GROUP ADMINS* 👑\n\n';
+        let adminList = '👑 *WADMIN WA GROUP* 👑\n\n';
         const mentions = [];
 
         admins.forEach((admin, index) => {
@@ -25,10 +25,9 @@ async function checkAdminsCommand(sock, chatId, message) {
             mentions.push(jid);
         });
 
-        adminList += `\n📌 Total: ${admins.length} admin(s)`;
+        adminList += `\n📌 Jumla: ${admins.length} admin(s)`;
         adminList += `\n\n> BIGMANj tech`;
 
-        // Send message with actual mentions (tags)
         await sock.sendMessage(chatId, {
             text: adminList,
             mentions: mentions
@@ -36,7 +35,7 @@ async function checkAdminsCommand(sock, chatId, message) {
 
     } catch (err) {
         console.error('Error in checkadmins command:', err);
-        await sock.sendMessage(chatId, { text: '❌ Failed to retrieve admin list. Make sure the bot is a member of the group.' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: '❌ Imeshindwa kupata orodha ya wadamin. Hakikisha bot ipo kwenye group.' }, { quoted: message });
     }
 }
 
