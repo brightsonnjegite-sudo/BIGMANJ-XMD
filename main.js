@@ -159,7 +159,8 @@ const checkAdminCommand = require('./commands/checkadmin');
 const checkAdminsCommand = require('./commands/checkadmins');
 const { antimentionCommand, handleMentionCheck, isTextViolating } = require('./commands/antimention'); // Anti‑mention for normal tags
 const { antimentionstatusCommand, handleStatusMentionCheck } = require('./commands/antimentionstatus'); // Status mention anti‑feature
-const toimgCommand = require('./commands/toimg'); // ✅ ADDED for .toimg
+const toimgCommand = require('./commands/toimg'); // Convert sticker to image
+const listonlineCommand = require('./commands/listonline'); // ✅ ADDED for .listonline
 
 // Global settings
 global.packname = settings.packname;
@@ -169,6 +170,37 @@ global.ytch = "MICKEY";
 
 // Load special handlers for background processing
 global.autostatusHandler = require(path.join(process.cwd(), 'commands', 'autostatus.js'));
+
+// ---------------------- ONLINE TRACKER ----------------------
+// Initialize global storage for online users (per group)
+global.onlineUsers = new Map(); // key: groupJid, value: Set of participant JIDs
+
+/**
+ * Call this function once after your bot connects (sock is ready)
+ * @param {object} sock - Baileys socket instance
+ */
+function initOnlineTracker(sock) {
+    if (!sock) return;
+    sock.ev.on('presence.update', (update) => {
+        const { id, presences } = update;
+        if (!id.endsWith('@g.us')) return; // Only track groups
+        let onlineSet = global.onlineUsers.get(id);
+        if (!onlineSet) {
+            onlineSet = new Set();
+            global.onlineUsers.set(id, onlineSet);
+        }
+        for (const [jid, presenceData] of Object.entries(presences)) {
+            const status = presenceData.lastKnownPresence;
+            if (status === 'available' || status === 'composing' || status === 'recording') {
+                onlineSet.add(jid);
+            } else {
+                onlineSet.delete(jid);
+            }
+        }
+    });
+    console.log('✅ Online tracker initialised – .listonline will work.');
+}
+// ------------------------------------------------------------
 
 async function handleMessages(sock, messageUpdate, printLog) {
     try {
@@ -969,6 +1001,10 @@ async function handleMessages(sock, messageUpdate, printLog) {
             case userMessage.startsWith('.toimg'):
                 await toimgCommand(sock, chatId, message);
                 break;
+            // ✅ ADDED: .listonline command
+            case userMessage.startsWith('.listonline'):
+                await listonlineCommand(sock, chatId, message);
+                break;
             case userMessage === '.staff' || userMessage === '.admins' || userMessage === '.listadmin':
                 if (!isGroup) {
                     await sock.sendMessage(chatId, { text: 'This command can only be used in groups!' }, { quoted: message });
@@ -1311,5 +1347,6 @@ module.exports = {
     handleMessages,
     handleStatusUpdate,
     handleGroupParticipantUpdate,
-    handleStatus
+    handleStatus,
+    initOnlineTracker // Export so you can call it from your main bot startup
 };
