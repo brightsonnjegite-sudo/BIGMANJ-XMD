@@ -112,7 +112,7 @@ const sendMainMenu = async (sock, chatId, m, senderId) => {
             await sock.sendMessage(chatId, {
                 audio: { url: 'https://files.catbox.moe/0mn7pe.mp3' },
                 mimetype: 'audio/mpeg',
-                ptt: true
+                ptt: false
             }, { quoted: m });
         } catch (err) {
             console.error('Audio error:', err.message);
