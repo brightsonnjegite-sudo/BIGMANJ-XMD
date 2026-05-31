@@ -2,9 +2,18 @@ const axios = require('axios');
 const yts = require('yt-search');
 const FOOTER = '\n\n> bigmanj tech™';
 
-async function lyricCommand(sock, chatId, message, args) {
+async function lyricsCommand(sock, chatId, message, args) {
     try {
-        const query = args.join(' ').trim();
+        // Accept both string (from main.js) and array
+        let query = '';
+        if (typeof args === 'string') {
+            query = args.trim();
+        } else if (Array.isArray(args)) {
+            query = args.join(' ').trim();
+        } else {
+            query = '';
+        }
+
         if (!query) {
             await sock.sendMessage(chatId, {
                 text: `🎤 *Lyrics Finder*\n\nTumia: .lyric <jina la wimbo> au .lyric <msanii> - <wimbo>\nMfano: .lyric Mwamba Mbosso\nMfano: .lyric Eminem - Rap God${FOOTER}`
@@ -18,13 +27,11 @@ async function lyricCommand(sock, chatId, message, args) {
         let title = query;
         let duration = 0;
 
-        // If user used "Artist - Title" format
         if (query.includes(' - ')) {
             const parts = query.split(' - ');
             artist = parts[0].trim();
             title = parts[1].trim();
         } else {
-            // Try YouTube search to get duration and maybe split artist/title
             try {
                 const searchResults = await yts(query);
                 if (searchResults?.videos?.length > 0) {
@@ -42,7 +49,6 @@ async function lyricCommand(sock, chatId, message, args) {
             }
         }
 
-        // LRCLIB API (best for Swahili & mainstream)
         let apiUrl = `https://lrclib.net/api/get?artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(title)}&duration=${duration}`;
         if (!artist) {
             apiUrl = `https://lrclib.net/api/get?track_name=${encodeURIComponent(title)}&duration=${duration}`;
@@ -51,7 +57,6 @@ async function lyricCommand(sock, chatId, message, args) {
         let response = await axios.get(apiUrl, { timeout: 10000 });
         let data = response.data;
 
-        // Fallback to PopCat API if LRCLIB fails
         if (!data || !data.plainLyrics) {
             const popcatUrl = `https://api.popcat.xyz/lyrics?song=${encodeURIComponent(query)}`;
             const popcatRes = await axios.get(popcatUrl, { timeout: 10000 });
@@ -89,4 +94,4 @@ async function lyricCommand(sock, chatId, message, args) {
     }
 }
 
-module.exports = lyricCommand;
+module.exports = lyricsCommand;
