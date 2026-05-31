@@ -89,9 +89,6 @@ const sendMainMenu = async (sock, chatId, m, senderId) => {
         mentions: [senderId]
     }, { quoted: m });
 
-    // Reaction ya ✔️ baada ya kutuma menu
-    await sock.sendMessage(chatId, { react: { text: '✔️', key: m.key } });
-
     setTimeout(() => sendAudio(sock, chatId, m), 2000);
 };
 
@@ -99,6 +96,8 @@ const menuHandler = async (sock, chatId, m) => {
     const text = getMessageText(m).trim().toLowerCase();
     if (text !== '.menu') return;
     const senderId = m.key.participant || m.key.remoteJid;
+    // React 📌 kabla ya kutuma menu
+    await sock.sendMessage(chatId, { react: { text: '📌', key: m.key } });
     await sendMainMenu(sock, chatId, m, senderId);
 };
 
