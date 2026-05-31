@@ -2,7 +2,9 @@ const moment = require('moment-timezone');
 const fs = require('fs');
 const path = require('path');
 
-// ==================== HELPER FUNCTIONS ====================
+// --------------------------------------------------------------
+// 1. HELPER FUNCTIONS
+// --------------------------------------------------------------
 const getMessageText = (m) => {
     if (m.message?.conversation) return m.message.conversation;
     if (m.message?.extendedTextMessage?.text) return m.message.extendedTextMessage.text;
@@ -27,117 +29,87 @@ const getGreeting = () => {
     return 'Habari za Jioni 🌙';
 };
 
-// Extract numeric part from JID (e.g., "255777580820@s.whatsapp.net" -> "255777580820")
 const getMentionNumber = (jid) => jid.split('@')[0];
 
-// ==================== MENU DATA ====================
-// Image URLs – replace with your own theme images if needed
+// --------------------------------------------------------------
+// 2. IMAGES ZA KILA SUBMENU (replace na URLs zako)
+// --------------------------------------------------------------
 const IMAGES = {
     main: 'https://i.ibb.co/cX8ysKLT/RD32363337313436343437363340732e77686174736170702e6e6574-554891.jpg', // Dog Crasher
-    general: 'https://picsum.photos/id/20/800/400',  // Premium Blue theme
-    group: 'https://picsum.photos/id/104/800/400',   // Group Manager theme
-    security: 'https://picsum.photos/id/0/800/400',  // Cyber Security theme
-    download: 'https://picsum.photos/id/29/800/400', // Neon Download theme
-    fun: 'https://picsum.photos/id/169/800/400',     // Anime Fun theme
-    effects: 'https://picsum.photos/id/96/800/400',  // Purple Effects theme
-    ai: 'https://picsum.photos/id/119/800/400',      // Future AI theme
-    owner: 'https://picsum.photos/id/104/800/400'    // Gold King theme
+    general: 'https://picsum.photos/id/20/800/400',    // Premium Blue
+    group: 'https://picsum.photos/id/104/800/400',     // Group Manager
+    security: 'https://picsum.photos/id/0/800/400',    // Cyber Security
+    download: 'https://picsum.photos/id/29/800/400',   // Neon Download
+    fun: 'https://picsum.photos/id/169/800/400',       // Anime Fun
+    effects: 'https://picsum.photos/id/96/800/400',    // Purple Effects
+    ai: 'https://picsum.photos/id/119/800/400',        // Future AI
+    owner: 'https://picsum.photos/id/104/800/400'      // Gold King
 };
 
-// Submenu command lists (as specified by the user)
+// --------------------------------------------------------------
+// 3. SUBMENU COMMANDS (kama ulivyotolea mfano)
+// --------------------------------------------------------------
 const SUBMENUS = {
     'menu-general': {
         title: '📂 GENERAL MENU',
-        commands: [
-            '.help', '.ping', '.alive', '.owner', '.repo',
-            '.stats', '.settings', '.checkupdates'
-        ]
+        commands: ['.help', '.ping', '.alive', '.owner', '.repo', '.stats', '.settings', '.checkupdates']
     },
     'menu-group': {
         title: '👥 GROUP MENU',
-        commands: [
-            '.add', '.kick', '.promote', '.demote', '.tagall',
-            '.tagnotadmin', '.hidetag', '.tag', '.mention',
-            '.setmention', '.setgname', '.setgdesc', '.setgpp'
-        ]
+        commands: ['.add', '.kick', '.promote', '.demote', '.tagall', '.tagnotadmin', '.hidetag', '.tag', '.mention', '.setmention', '.setgname', '.setgdesc', '.setgpp']
     },
     'menu-security': {
         title: '🛡️ SECURITY MENU',
-        commands: [
-            '.antibot', '.antilink', '.antimention', '.antimentionstatus',
-            '.antibadword', '.anticall', '.pmblocker', '.antitag',
-            '.ban', '.unban', '.resetlink'
-        ]
+        commands: ['.antibot', '.antilink', '.antimention', '.antimentionstatus', '.antibadword', '.anticall', '.pmblocker', '.antitag', '.ban', '.unban', '.resetlink']
     },
     'menu-download': {
         title: '📥 DOWNLOAD MENU',
-        commands: [
-            '.play', '.video', '.music', '.facebook', '.instagram',
-            '.igs', '.igsc', '.tiktok', '.gdrive', '.url'
-        ]
+        commands: ['.play', '.video', '.music', '.facebook', '.instagram', '.igs', '.igsc', '.tiktok', '.gdrive', '.url']
     },
     'menu-fun': {
         title: '🎮 FUN MENU',
-        commands: [
-            '.truth', '.dare', '.joke', '.compliment', '.lyrics',
-            '.character', '.weather', '.report', '.wasted', '.mickey'
-        ]
+        commands: ['.truth', '.dare', '.joke', '.compliment', '.lyrics', '.character', '.weather', '.report', '.wasted', '.mickey']
     },
     'menu-effects': {
         title: '✨ EFFECTS MENU',
-        commands: [
-            '.metallic', '.ice', '.snow', '.impressive', '.matrix',
-            '.light', '.neon', '.devil', '.purple', '.thunder',
-            '.leaves', '.1917', '.arena', '.hacker', '.sand',
-            '.blackpink', '.glitch', '.fire'
-        ]
+        commands: ['.metallic', '.ice', '.snow', '.impressive', '.matrix', '.light', '.neon', '.devil', '.purple', '.thunder', '.leaves', '.1917', '.arena', '.hacker', '.sand', '.blackpink', '.glitch', '.fire']
     },
     'menu-ai': {
         title: '🤖 AI MENU',
-        commands: [
-            '.gpt', '.aivoice', '.imagine', '.ghost', '.getcode', '.getlink'
-        ]
+        commands: ['.gpt', '.aivoice', '.imagine', '.ghost', '.getcode', '.getlink']
     },
     'menu-owner': {
         title: '👑 OWNER MENU',
-        commands: [
-            '.sudo', '.update', '.newgroup', '.autostatus',
-            '.autotyping', '.autoread', '.areact'
-        ]
+        commands: ['.sudo', '.update', '.newgroup', '.autostatus', '.autotyping', '.autoread', '.areact']
     }
 };
 
-// ==================== MAIN MENU ====================
-const sendMainMenu = async (sock, chatId, m, senderId, userName) => {
+// --------------------------------------------------------------
+// 4. SEND MAIN MENU (muundo mpya uliotaka)
+// --------------------------------------------------------------
+const sendMainMenu = async (sock, chatId, m, senderId) => {
     moment.tz.setDefault('Africa/Dar_es_Salaam');
     const now = moment();
     const greeting = getGreeting();
     const mentionNumber = getMentionNumber(senderId);
-    const ownerNumber = '255777580820';
-    const ownerName = 'BIGMANj';
+    const userName = m.pushName || 'User';
+    const runtime = formatUptime(process.uptime());
+    const date = now.format('DD/MM/YYYY');
+    const time = now.format('HH:mm:ss');
 
+    // Caption kwa mujibu wa maelezo yako
     let caption = '';
-    caption += '🩸━━━━━━━━━━━━━━━━━━🩸\n';
-    caption += '     *BIGMANj BOT*\n';
-    caption += '🩸━━━━━━━━━━━━━━━━━━🩸\n\n';
-    caption += `👋 ${greeting} @${mentionNumber}\n\n`;
-    caption += `👑 Owner      : ${ownerName}\n`;
-    caption += `📞 Owner No   : ${ownerNumber}\n`;
-    caption += `⚡ Commands   : Auto Count\n`;
-    caption += `🚀 Runtime    : ${formatUptime(process.uptime())}\n`;
-    caption += `📅 Date       : ${now.format('DD/MM/YYYY')}\n`;
-    caption += `⏰ Time       : ${now.format('HH:mm:ss')}\n\n`;
-    caption += '🩸 FEAR THE CRASHER 🩸\n\n';
-    caption += '📂 *AVAILABLE MENUS*\n';
-    caption += '• .menu-general\n';
-    caption += '• .menu-group\n';
-    caption += '• .menu-security\n';
-    caption += '• .menu-download\n';
-    caption += '• .menu-fun\n';
-    caption += '• .menu-effects\n';
-    caption += '• .menu-ai\n';
-    caption += '• .menu-owner\n\n';
-    caption += '> bigmanj tech™';
+    caption += `✨ ΥΟ!!, @${mentionNumber}\n\n`;
+    caption += `🤖 Τhis is ΒΙGMANj ΒΟΤ, a WhatsApp Automation Tool developed in collaboration with Ωuantum Βase Developer.\n\n`;
+    caption += `🌵 Group Management\n`;
+    caption += `🛡️ Security System\n`;
+    caption += `🤖 AI Features\n`;
+    caption += `📥 Download System\n`;
+    caption += `✨ Effects & Logo Maker\n`;
+    caption += `👑 Owner Controls\n\n`;
+    caption += `🚀 ΒΙGMANj ΒΟΤ — Fast, Powerful & Reliable\n\n`;
+    caption += `📅 ${date}  |  ⏰ ${time}  |  ⏱️ Uptime: ${runtime}\n\n`;
+    caption += `> bigmanj tech™`;
 
     await sock.sendMessage(chatId, {
         image: { url: IMAGES.main },
@@ -145,7 +117,9 @@ const sendMainMenu = async (sock, chatId, m, senderId, userName) => {
         mentions: [senderId]
     }, { quoted: m });
 
-    // Send audio only for main menu
+    // ----------------------------------------------------------
+    // Tuma AUDIO (Holy Drill Yeshua) – kwa MAIN MENU pekee
+    // ----------------------------------------------------------
     const audioPath = path.join(__dirname, '../assets/holy-drill-yeshua.mp3');
     setTimeout(async () => {
         try {
@@ -157,22 +131,22 @@ const sendMainMenu = async (sock, chatId, m, senderId, userName) => {
                     ptt: true
                 }, { quoted: m });
             } else {
-                await sock.sendMessage(chatId, {
-                    text: '🎵 *Holy Drill - Yeshua*\n(Wimbo unapatikana CeeNaija au YouTube)'
-                }, { quoted: m });
+                // Ukitaka isitume chochote ikiwa audio haipo, ondoa block hii
+                console.warn('Audio file not found, skipping...');
             }
         } catch (err) {
             console.error('Audio error:', err.message);
         }
-    }, 2500);
+    }, 2000);
 };
 
-// ==================== SUBMENU GENERATOR ====================
+// --------------------------------------------------------------
+// 5. SEND SUBMENU (kila moja ina picha yake)
+// --------------------------------------------------------------
 const sendSubMenu = async (sock, chatId, m, senderId, menuKey) => {
     const menu = SUBMENUS[menuKey];
     if (!menu) return false;
 
-    const userName = m.pushName || 'User';
     const greeting = getGreeting();
     const mentionNumber = getMentionNumber(senderId);
 
@@ -185,16 +159,18 @@ const sendSubMenu = async (sock, chatId, m, senderId, menuKey) => {
     }
     caption += '\n> bigmanj tech™';
 
-    // Determine image for this menu
-    let imageUrl = IMAGES.main; // fallback
-    if (menuKey === 'menu-general') imageUrl = IMAGES.general;
-    else if (menuKey === 'menu-group') imageUrl = IMAGES.group;
-    else if (menuKey === 'menu-security') imageUrl = IMAGES.security;
-    else if (menuKey === 'menu-download') imageUrl = IMAGES.download;
-    else if (menuKey === 'menu-fun') imageUrl = IMAGES.fun;
-    else if (menuKey === 'menu-effects') imageUrl = IMAGES.effects;
-    else if (menuKey === 'menu-ai') imageUrl = IMAGES.ai;
-    else if (menuKey === 'menu-owner') imageUrl = IMAGES.owner;
+    // Chagua picha kulingana na submenu
+    let imageUrl = IMAGES.main;
+    switch (menuKey) {
+        case 'menu-general': imageUrl = IMAGES.general; break;
+        case 'menu-group': imageUrl = IMAGES.group; break;
+        case 'menu-security': imageUrl = IMAGES.security; break;
+        case 'menu-download': imageUrl = IMAGES.download; break;
+        case 'menu-fun': imageUrl = IMAGES.fun; break;
+        case 'menu-effects': imageUrl = IMAGES.effects; break;
+        case 'menu-ai': imageUrl = IMAGES.ai; break;
+        case 'menu-owner': imageUrl = IMAGES.owner; break;
+    }
 
     await sock.sendMessage(chatId, {
         image: { url: imageUrl },
@@ -205,29 +181,30 @@ const sendSubMenu = async (sock, chatId, m, senderId, menuKey) => {
     return true;
 };
 
-// ==================== MAIN HANDLER ====================
+// --------------------------------------------------------------
+// 6. MAIN HANDLER – INAJIBU .menu NA .menu-*
+// --------------------------------------------------------------
 const menuHandler = async (sock, chatId, m) => {
     try {
         const text = getMessageText(m).trim().toLowerCase();
-        if (!text.startsWith('.menu')) return; // ignore non-menu commands
+        if (!text.startsWith('.menu')) return;
 
         const senderId = m.key.participant || m.key.remoteJid;
-        const userName = m.pushName || 'User';
 
-        // Main menu
+        // MAIN MENU
         if (text === '.menu') {
-            await sendMainMenu(sock, chatId, m, senderId, userName);
+            await sendMainMenu(sock, chatId, m, senderId);
             return;
         }
 
-        // Submenus
-        const submenuKey = text.substring(1); // remove the dot
+        // SUBMENUS
+        const submenuKey = text.substring(1); // remove dot
         if (SUBMENUS[submenuKey]) {
             await sendSubMenu(sock, chatId, m, senderId, submenuKey);
         } else {
-            // Optional: reply with error for unknown .menu-xxx
+            // Ikiwa command si .menu wala submenu inayojulikana
             await sock.sendMessage(chatId, {
-                text: '❌ Submenu haipo. Tumia .menu kuona orodha sahihi.'
+                text: '❌ Submenu haipo. Tumia .menu kuona orodha.'
             }, { quoted: m });
         }
     } catch (error) {
