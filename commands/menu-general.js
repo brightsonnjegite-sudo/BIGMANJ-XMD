@@ -13,19 +13,18 @@ const handler = async (sock, chatId, m) => {
     const greeting = getGreeting();
     const mention = getMentionNumber(senderId);
 
-    const commands = [
-        '.help', '.ping', '.alive', '.owner', '.repo', '.stats', '.settings', '.checkupdates', '.jid'
-    ];
+    const commands = ['.help', '.ping', '.alive', '.owner', '.repo', '.stats', '.settings', '.checkupdates', '.jid'];
 
     let caption = `✨ ΥΟ!!, @${mention}\n\n`;
     caption += `📂 GENERAL MENU\n`;
     caption += `━━━━━━━━━━━━━━━━━━━━━━\n`;
     for (const cmd of commands) caption += `• ${cmd}\n`;
     caption += `\n🤖 This section contains general bot commands.\n💡 Use these commands to interact with the bot.\n\n`;
-    caption += `🚀 BIGMANj BOT — Fast • Powerful • Reliable\n\n> bigmanj tech™`;
+    caption += `🚀 *BIGMANj MD* — Fast • Powerful • Reliable\n\n> bigmanj tech™`;
 
+    await sock.sendMessage(chatId, { react: { text: '📂', key: m.key } });
     await sock.sendMessage(chatId, {
-        image: { url: 'https://n.uguu.se/xBzwyuUT.jpg' }, // Picha yako mpya
+        image: { url: 'https://n.uguu.se/xBzwyuUT.jpg' },
         caption: caption,
         mentions: [senderId]
     }, { quoted: m });
