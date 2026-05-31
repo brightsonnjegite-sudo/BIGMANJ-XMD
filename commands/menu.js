@@ -1,7 +1,7 @@
 const moment = require('moment-timezone');
 const fs = require('fs');
 const path = require('path');
-const axios = require('axios'); // Hakikisha umesakinisha: npm install axios
+const axios = require('axios');
 
 // --------------------------------------------------------------
 // 1. HELPER FUNCTIONS
@@ -33,10 +33,10 @@ const getGreeting = () => {
 const getMentionNumber = (jid) => jid.split('@')[0];
 
 // --------------------------------------------------------------
-// 2. PICHA ZA KILA SUBMENU (Badilisha URLs zako hapa)
+// 2. IMAGES (replace with your own)
 // --------------------------------------------------------------
 const IMAGES = {
-    main: 'https://i.ibb.co/cX8ysKLT/RD32363337313436343437363340732e77686174736170702e6e6574-554891.jpg', // Dog Crasher
+    main: 'https://i.ibb.co/cX8ysKLT/RD32363337313436343437363340732e77686174736170702e6e6574-554891.jpg',
     general: 'https://picsum.photos/id/20/800/400',
     group: 'https://picsum.photos/id/104/800/400',
     security: 'https://picsum.photos/id/0/800/400',
@@ -48,7 +48,7 @@ const IMAGES = {
 };
 
 // --------------------------------------------------------------
-// 3. SUBMENU ORODHA ZA COMMANDS
+// 3. SUBMENUS
 // --------------------------------------------------------------
 const SUBMENUS = {
     'menu-general': {
@@ -86,34 +86,48 @@ const SUBMENUS = {
 };
 
 // --------------------------------------------------------------
-// 4. KUPASUA AUDIO KUTOKA URL NA KUITUMA
+// 4. AUDIO CACHE (download once)
 // --------------------------------------------------------------
 const AUDIO_URL = 'https://files.catbox.moe/0mn7pe.mp3';
+let cachedAudioBuffer = null;
 
-async function sendAudioFromUrl(sock, chatId, quotedMsg) {
+async function getAudioBuffer() {
+    if (cachedAudioBuffer) return cachedAudioBuffer;
     try {
-        // Pakua audio kwa kutumia axios
+        console.log('📥 Downloading audio from URL...');
         const response = await axios.get(AUDIO_URL, {
             responseType: 'arraybuffer',
             timeout: 30000
         });
-        const audioBuffer = Buffer.from(response.data);
-        
-        // Tuma kama PTT (voice note)
+        cachedAudioBuffer = Buffer.from(response.data);
+        console.log('✅ Audio downloaded and cached. Size:', cachedAudioBuffer.length);
+        return cachedAudioBuffer;
+    } catch (err) {
+        console.error('❌ Failed to download audio:', err.message);
+        return null;
+    }
+}
+
+async function sendAudioMessage(sock, chatId, quotedMsg) {
+    const audioBuffer = await getAudioBuffer();
+    if (!audioBuffer) {
+        console.log('⚠️ No audio buffer, skipping audio.');
+        return;
+    }
+    try {
         await sock.sendMessage(chatId, {
             audio: audioBuffer,
             mimetype: 'audio/mp4',
-            ptt: true
+            ptt: true          // voice note format
         }, { quoted: quotedMsg });
-        console.log('✅ Audio imetumwa kikamilifu kutoka URL');
+        console.log('✅ Audio message sent successfully');
     } catch (err) {
-        console.error('❌ Kosa la kutuma audio:', err.message);
-        // Usitume maandishi – tunataka kimya kwa error
+        console.error('❌ Error sending audio:', err.message);
     }
 }
 
 // --------------------------------------------------------------
-// 5. SEND MAIN MENU (Picha + Caption + Audio)
+// 5. SEND MAIN MENU (with audio)
 // --------------------------------------------------------------
 const sendMainMenu = async (sock, chatId, m, senderId) => {
     moment.tz.setDefault('Africa/Dar_es_Salaam');
@@ -137,21 +151,21 @@ const sendMainMenu = async (sock, chatId, m, senderId) => {
     caption += `📅 ${date}  |  ⏰ ${time}  |  ⏱️ Uptime: ${runtime}\n\n`;
     caption += `> bigmanj tech™`;
 
-    // Tuma picha na caption
+    // Send image + caption
     await sock.sendMessage(chatId, {
         image: { url: IMAGES.main },
         caption: caption,
         mentions: [senderId]
     }, { quoted: m });
 
-    // Tuma audio baada ya sekunde 2 (kutoka URL)
+    // Send audio after a short delay (2 seconds)
     setTimeout(async () => {
-        await sendAudioFromUrl(sock, chatId, m);
+        await sendAudioMessage(sock, chatId, m);
     }, 2000);
 };
 
 // --------------------------------------------------------------
-// 6. SEND SUBMENU (Picha tu, hakuna audio)
+// 6. SEND SUBMENU (no audio)
 // --------------------------------------------------------------
 const sendSubMenu = async (sock, chatId, m, senderId, menuKey) => {
     const menu = SUBMENUS[menuKey];
@@ -170,14 +184,16 @@ const sendSubMenu = async (sock, chatId, m, senderId, menuKey) => {
     caption += '\n> bigmanj tech™';
 
     let imageUrl = IMAGES.main;
-    if (menuKey === 'menu-general') imageUrl = IMAGES.general;
-    else if (menuKey === 'menu-group') imageUrl = IMAGES.group;
-    else if (menuKey === 'menu-security') imageUrl = IMAGES.security;
-    else if (menuKey === 'menu-download') imageUrl = IMAGES.download;
-    else if (menuKey === 'menu-fun') imageUrl = IMAGES.fun;
-    else if (menuKey === 'menu-effects') imageUrl = IMAGES.effects;
-    else if (menuKey === 'menu-ai') imageUrl = IMAGES.ai;
-    else if (menuKey === 'menu-owner') imageUrl = IMAGES.owner;
+    switch (menuKey) {
+        case 'menu-general': imageUrl = IMAGES.general; break;
+        case 'menu-group': imageUrl = IMAGES.group; break;
+        case 'menu-security': imageUrl = IMAGES.security; break;
+        case 'menu-download': imageUrl = IMAGES.download; break;
+        case 'menu-fun': imageUrl = IMAGES.fun; break;
+        case 'menu-effects': imageUrl = IMAGES.effects; break;
+        case 'menu-ai': imageUrl = IMAGES.ai; break;
+        case 'menu-owner': imageUrl = IMAGES.owner; break;
+    }
 
     await sock.sendMessage(chatId, {
         image: { url: imageUrl },
@@ -189,7 +205,7 @@ const sendSubMenu = async (sock, chatId, m, senderId, menuKey) => {
 };
 
 // --------------------------------------------------------------
-// 7. MAIN COMMAND EXPORT
+// 7. MAIN HANDLER
 // --------------------------------------------------------------
 const menuHandler = async (sock, chatId, m) => {
     try {
