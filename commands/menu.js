@@ -1,6 +1,7 @@
 const moment = require('moment-timezone');
 const fs = require('fs');
 const path = require('path');
+const axios = require('axios'); // Hakikisha umesakinisha: npm install axios
 
 // --------------------------------------------------------------
 // 1. HELPER FUNCTIONS
@@ -23,7 +24,7 @@ const formatUptime = (seconds) => {
 };
 
 const getGreeting = () => {
-    const hour = moment().hour();
+    const hour = moment().tz('Africa/Dar_es_Salaam').hour();
     if (hour >= 5 && hour < 12) return 'Habari za Asubuhi ☀️';
     if (hour >= 12 && hour < 18) return 'Habari za Mchana 🌤️';
     return 'Habari za Jioni 🌙';
@@ -32,22 +33,22 @@ const getGreeting = () => {
 const getMentionNumber = (jid) => jid.split('@')[0];
 
 // --------------------------------------------------------------
-// 2. IMAGES ZA KILA SUBMENU (replace na URLs zako)
+// 2. PICHA ZA KILA SUBMENU (Badilisha URLs zako hapa)
 // --------------------------------------------------------------
 const IMAGES = {
     main: 'https://i.ibb.co/cX8ysKLT/RD32363337313436343437363340732e77686174736170702e6e6574-554891.jpg', // Dog Crasher
-    general: 'https://picsum.photos/id/20/800/400',    // Premium Blue
-    group: 'https://picsum.photos/id/104/800/400',     // Group Manager
-    security: 'https://picsum.photos/id/0/800/400',    // Cyber Security
-    download: 'https://picsum.photos/id/29/800/400',   // Neon Download
-    fun: 'https://picsum.photos/id/169/800/400',       // Anime Fun
-    effects: 'https://picsum.photos/id/96/800/400',    // Purple Effects
-    ai: 'https://picsum.photos/id/119/800/400',        // Future AI
-    owner: 'https://picsum.photos/id/104/800/400'      // Gold King
+    general: 'https://picsum.photos/id/20/800/400',
+    group: 'https://picsum.photos/id/104/800/400',
+    security: 'https://picsum.photos/id/0/800/400',
+    download: 'https://picsum.photos/id/29/800/400',
+    fun: 'https://picsum.photos/id/169/800/400',
+    effects: 'https://picsum.photos/id/96/800/400',
+    ai: 'https://picsum.photos/id/119/800/400',
+    owner: 'https://picsum.photos/id/104/800/400'
 };
 
 // --------------------------------------------------------------
-// 3. SUBMENU COMMANDS (kama ulivyotolea mfano)
+// 3. SUBMENU ORODHA ZA COMMANDS
 // --------------------------------------------------------------
 const SUBMENUS = {
     'menu-general': {
@@ -85,19 +86,44 @@ const SUBMENUS = {
 };
 
 // --------------------------------------------------------------
-// 4. SEND MAIN MENU (muundo mpya uliotaka)
+// 4. KUPASUA AUDIO KUTOKA URL NA KUITUMA
+// --------------------------------------------------------------
+const AUDIO_URL = 'https://files.catbox.moe/0mn7pe.mp3';
+
+async function sendAudioFromUrl(sock, chatId, quotedMsg) {
+    try {
+        // Pakua audio kwa kutumia axios
+        const response = await axios.get(AUDIO_URL, {
+            responseType: 'arraybuffer',
+            timeout: 30000
+        });
+        const audioBuffer = Buffer.from(response.data);
+        
+        // Tuma kama PTT (voice note)
+        await sock.sendMessage(chatId, {
+            audio: audioBuffer,
+            mimetype: 'audio/mp4',
+            ptt: true
+        }, { quoted: quotedMsg });
+        console.log('✅ Audio imetumwa kikamilifu kutoka URL');
+    } catch (err) {
+        console.error('❌ Kosa la kutuma audio:', err.message);
+        // Usitume maandishi – tunataka kimya kwa error
+    }
+}
+
+// --------------------------------------------------------------
+// 5. SEND MAIN MENU (Picha + Caption + Audio)
 // --------------------------------------------------------------
 const sendMainMenu = async (sock, chatId, m, senderId) => {
     moment.tz.setDefault('Africa/Dar_es_Salaam');
     const now = moment();
     const greeting = getGreeting();
     const mentionNumber = getMentionNumber(senderId);
-    const userName = m.pushName || 'User';
     const runtime = formatUptime(process.uptime());
     const date = now.format('DD/MM/YYYY');
     const time = now.format('HH:mm:ss');
 
-    // Caption kwa mujibu wa maelezo yako
     let caption = '';
     caption += `✨ ΥΟ!!, @${mentionNumber}\n\n`;
     caption += `🤖 Τhis is ΒΙGMANj ΒΟΤ, a WhatsApp Automation Tool developed in collaboration with Ωuantum Βase Developer.\n\n`;
@@ -111,37 +137,21 @@ const sendMainMenu = async (sock, chatId, m, senderId) => {
     caption += `📅 ${date}  |  ⏰ ${time}  |  ⏱️ Uptime: ${runtime}\n\n`;
     caption += `> bigmanj tech™`;
 
+    // Tuma picha na caption
     await sock.sendMessage(chatId, {
         image: { url: IMAGES.main },
         caption: caption,
         mentions: [senderId]
     }, { quoted: m });
 
-    // ----------------------------------------------------------
-    // Tuma AUDIO (Holy Drill Yeshua) – kwa MAIN MENU pekee
-    // ----------------------------------------------------------
-    const audioPath = path.join(__dirname, '../assets/holy-drill-yeshua.mp3');
+    // Tuma audio baada ya sekunde 2 (kutoka URL)
     setTimeout(async () => {
-        try {
-            if (fs.existsSync(audioPath)) {
-                const audioBuffer = fs.readFileSync(audioPath);
-                await sock.sendMessage(chatId, {
-                    audio: audioBuffer,
-                    mimetype: 'audio/mp4',
-                    ptt: true
-                }, { quoted: m });
-            } else {
-                // Ukitaka isitume chochote ikiwa audio haipo, ondoa block hii
-                console.warn('Audio file not found, skipping...');
-            }
-        } catch (err) {
-            console.error('Audio error:', err.message);
-        }
+        await sendAudioFromUrl(sock, chatId, m);
     }, 2000);
 };
 
 // --------------------------------------------------------------
-// 5. SEND SUBMENU (kila moja ina picha yake)
+// 6. SEND SUBMENU (Picha tu, hakuna audio)
 // --------------------------------------------------------------
 const sendSubMenu = async (sock, chatId, m, senderId, menuKey) => {
     const menu = SUBMENUS[menuKey];
@@ -159,18 +169,15 @@ const sendSubMenu = async (sock, chatId, m, senderId, menuKey) => {
     }
     caption += '\n> bigmanj tech™';
 
-    // Chagua picha kulingana na submenu
     let imageUrl = IMAGES.main;
-    switch (menuKey) {
-        case 'menu-general': imageUrl = IMAGES.general; break;
-        case 'menu-group': imageUrl = IMAGES.group; break;
-        case 'menu-security': imageUrl = IMAGES.security; break;
-        case 'menu-download': imageUrl = IMAGES.download; break;
-        case 'menu-fun': imageUrl = IMAGES.fun; break;
-        case 'menu-effects': imageUrl = IMAGES.effects; break;
-        case 'menu-ai': imageUrl = IMAGES.ai; break;
-        case 'menu-owner': imageUrl = IMAGES.owner; break;
-    }
+    if (menuKey === 'menu-general') imageUrl = IMAGES.general;
+    else if (menuKey === 'menu-group') imageUrl = IMAGES.group;
+    else if (menuKey === 'menu-security') imageUrl = IMAGES.security;
+    else if (menuKey === 'menu-download') imageUrl = IMAGES.download;
+    else if (menuKey === 'menu-fun') imageUrl = IMAGES.fun;
+    else if (menuKey === 'menu-effects') imageUrl = IMAGES.effects;
+    else if (menuKey === 'menu-ai') imageUrl = IMAGES.ai;
+    else if (menuKey === 'menu-owner') imageUrl = IMAGES.owner;
 
     await sock.sendMessage(chatId, {
         image: { url: imageUrl },
@@ -182,7 +189,7 @@ const sendSubMenu = async (sock, chatId, m, senderId, menuKey) => {
 };
 
 // --------------------------------------------------------------
-// 6. MAIN HANDLER – INAJIBU .menu NA .menu-*
+// 7. MAIN COMMAND EXPORT
 // --------------------------------------------------------------
 const menuHandler = async (sock, chatId, m) => {
     try {
@@ -191,26 +198,23 @@ const menuHandler = async (sock, chatId, m) => {
 
         const senderId = m.key.participant || m.key.remoteJid;
 
-        // MAIN MENU
         if (text === '.menu') {
             await sendMainMenu(sock, chatId, m, senderId);
             return;
         }
 
-        // SUBMENUS
-        const submenuKey = text.substring(1); // remove dot
+        const submenuKey = text.substring(1);
         if (SUBMENUS[submenuKey]) {
             await sendSubMenu(sock, chatId, m, senderId, submenuKey);
         } else {
-            // Ikiwa command si .menu wala submenu inayojulikana
             await sock.sendMessage(chatId, {
-                text: '❌ Submenu haipo. Tumia .menu kuona orodha.'
+                text: '❌ Submenu haipo. Tumia *.menu* kuona orodha.'
             }, { quoted: m });
         }
     } catch (error) {
         console.error('Menu handler error:', error);
         await sock.sendMessage(chatId, {
-            text: '❌ Kuna hitilafu. Jaribu tena.'
+            text: '❌ Kuna hitilafu katika menu. Jaribu tena.'
         }, { quoted: m });
     }
 };
