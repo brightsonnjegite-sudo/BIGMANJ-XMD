@@ -13,21 +13,18 @@ const handler = async (sock, chatId, m) => {
     const greeting = getGreeting();
     const mention = getMentionNumber(senderId);
 
-    const commands = [
-        '.antilink', '.antitag', '.antibot', '.antimention', '.antimentionstatus', '.antidelete',
-        '.antibadword', '.anticall', '.pmblocker', '.ban', '.unban', '.warn', '.warnings',
-        '.checkadmin', '.checkadmins'
-    ];
+    const commands = ['.antilink', '.antitag', '.antibot', '.antimention', '.antimentionstatus', '.antidelete', '.antibadword', '.anticall', '.pmblocker', '.ban', '.unban', '.warn', '.warnings', '.checkadmin', '.checkadmins'];
 
     let caption = `✨ ΥΟ!!, @${mention}\n\n`;
     caption += `🛡️ SECURITY MENU\n`;
     caption += `━━━━━━━━━━━━━━━━━━━━━━\n`;
     for (const cmd of commands) caption += `• ${cmd}\n`;
     caption += `\n🛡️ Protect your group from spam and abuse.\n💡 Security comes first.\n\n`;
-    caption += `🚀 BIGMANj BOT — Fast • Powerful • Reliable\n\n> bigmanj tech™`;
+    caption += `🚀 *BIGMANj MD* — Fast • Powerful • Reliable\n\n> bigmanj tech™`;
 
+    await sock.sendMessage(chatId, { react: { text: '🛡️', key: m.key } });
     await sock.sendMessage(chatId, {
-        image: { url: 'https://o.uguu.se/arEJGXvX.jpg' }, // Picha yako mpya
+        image: { url: 'https://o.uguu.se/arEJGXvX.jpg' },
         caption: caption,
         mentions: [senderId]
     }, { quoted: m });
