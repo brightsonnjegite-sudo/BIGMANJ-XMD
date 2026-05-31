@@ -2,7 +2,7 @@ const moment = require('moment-timezone');
 
 /**
  * @project: BIGMANJ BOT
- * @description: Menu with dog image + plain text command list
+ * @description: Menu with dog image and full command list in the caption
  */
 
 const menuCommand = async (sock, chatId, m) => {
@@ -33,8 +33,8 @@ const menuCommand = async (sock, chatId, m) => {
         // Image URL (your dog image)
         const imageUrl = 'https://i.ibb.co/cX8ysKLT/RD32363337313436343437363340732e77686174736170702e6e6574-554891.jpg';
 
-        // Caption for the image (without DOG CRASHER text)
-        const caption = 
+        // ---------- Build full caption with command list ----------
+        let caption = 
             `🩸━━━━━━━━━━━━━━━━━━🩸
       BIGMANJ BOT
 🩸━━━━━━━━━━━━━━━━━━🩸
@@ -50,16 +50,11 @@ const menuCommand = async (sock, chatId, m) => {
 🩸 FEAR THE CRASHER 🩸
 > bigmanj tech™
 
-👇 *Orodha ya amri zote hapa chini:*`;
+━━━━━━━━━━━━━━━━━━━━━━
+📋 *COMMAND LIST*
+━━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
-        // Send the image with caption and mention
-        await sock.sendMessage(chatId, {
-            image: { url: imageUrl },
-            caption: caption,
-            mentions: [senderId]
-        }, { quoted: m });
-
-        // ---------- Command list (plain text) ----------
+        // Categories and commands
         const categories = [
             {
                 name: '🔹 GENERAL',
@@ -99,15 +94,19 @@ const menuCommand = async (sock, chatId, m) => {
             }
         ];
 
-        let listText = `📋 *COMMAND LIST*\n\n`;
         for (const cat of categories) {
-            listText += `${cat.name}\n`;
-            listText += cat.commands.map(cmd => `   ${cmd}`).join(' · ') + '\n\n';
+            caption += `${cat.name}\n`;
+            caption += cat.commands.map(cmd => `   ${cmd}`).join(' · ') + '\n\n';
         }
-        listText += `> bigmanj tech™`;
 
-        // Send the command list
-        await sock.sendMessage(chatId, { text: listText }, { quoted: m });
+        caption += `> bigmanj tech™`;
+
+        // Send image with full caption (including command list) and mention
+        await sock.sendMessage(chatId, {
+            image: { url: imageUrl },
+            caption: caption,
+            mentions: [senderId]
+        }, { quoted: m });
 
     } catch (e) {
         console.error('Menu Error:', e);
