@@ -32,7 +32,7 @@ const handler = async (sock, chatId, m) => {
     const greeting = getGreeting();
     const mention = getMentionNumber(senderId);
 
-    let caption = `✨ ΥΟ!!, @${mention}\n\n📋 *ALL COMMANDS BY CATEGORY (A-Z)*\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    let caption = `✨ ${greeting} @${mention}\n\n📋 *ALL COMMANDS BY CATEGORY (A-Z)*\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
     for (const [category, cmds] of Object.entries(CATEGORIES)) {
         caption += `*${category}*\n`;
         const listed = addLetterPrefix(cmds);
@@ -41,15 +41,7 @@ const handler = async (sock, chatId, m) => {
     }
     caption += `🚀 *BIGMANj MD* — Fast • Powerful • Reliable\n\n> bigmanj tech™`;
 
-    try {
-        await sock.sendMessage(chatId, {
-            image: { url: 'https://files.catbox.moe/g273hp.jpg' },
-            caption: caption,
-            mentions: [senderId]
-        }, { quoted: m });
-    } catch (err) {
-        await sock.sendMessage(chatId, { text: caption, mentions: [senderId] }, { quoted: m });
-    }
+    await sock.sendMessage(chatId, { text: caption, mentions: [senderId] }, { quoted: m });
     await sock.sendMessage(chatId, { react: { text: '📋', key: m.key } });
 };
 
