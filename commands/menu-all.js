@@ -58,7 +58,7 @@ const CATEGORIES = {
     ]
 };
 
-// Function to add letter prefix (a, b, c...) to commands
+// Function to add letter prefix (a, b, c...)
 function addLetterPrefix(cmds) {
     const letters = 'abcdefghijklmnopqrstuvwxyz';
     return cmds.map((cmd, idx) => {
@@ -90,9 +90,10 @@ const handler = async (sock, chatId, m) => {
     // React with 📋
     await sock.sendMessage(chatId, { react: { text: '📋', key: m.key } });
 
-    // Send the message
+    // Send as image with caption
     await sock.sendMessage(chatId, {
-        text: caption,
+        image: { url: 'https://h.uguu.se/HHDZCBqD.jpg' },
+        caption: caption,
         mentions: [senderId]
     }, { quoted: m });
 };
