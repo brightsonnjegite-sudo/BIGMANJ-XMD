@@ -75,6 +75,7 @@ const sendMainMenu = async (sock, chatId, m, senderId) => {
     caption += `┃ *.menu-tools*\n`;
     caption += `┃ *.menu-fun*\n`;
     caption += `┃ *.menu-automation*\n`;
+    caption += `┃ *.menu-all*\n`;   // ← imeongezwa
     caption += `╰━━━━━━━━━━━━━━⬣\n\n`;
     caption += `${greeting} @${mention}\n\n`;
     caption += `👑 Owner : ${OWNER_NAME}\n`;
@@ -98,7 +99,6 @@ const menuHandler = async (sock, chatId, m) => {
     const text = getMessageText(m).trim().toLowerCase();
     if (text !== '.menu') return;
     const senderId = m.key.participant || m.key.remoteJid;
-    // React 📌 kabla ya kutuma menu
     await sock.sendMessage(chatId, { react: { text: '📌', key: m.key } });
     await sendMainMenu(sock, chatId, m, senderId);
 };
