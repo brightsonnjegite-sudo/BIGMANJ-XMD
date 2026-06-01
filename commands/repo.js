@@ -1,107 +1,83 @@
-/**
- * repo.js - Repository Information with Interactive Buttons
- * Shows GitHub repo info with CTA buttons for copy, open URL, and download ZIP
- */
+const os = require('os');
 const axios = require('axios');
-const { sendInteractiveMessage } = require('gifted-btns');
+const { sendButtons } = require('gifted-btns');
+const moment = require('moment-timezone');
 
-const REPO_API_URL = 'https://api.github.com/repos/brightsonnjegite-sudo/BIGMANJ-XMD';
-
-// Format date to readable format
+// Function to format date
 function formatDate(dateString) {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-}
-
-// Get language color emoji
-function getLanguageEmoji(language) {
-    const emojis = {
-        'JavaScript': '🟨',
-        'TypeScript': '🔵',
-        'Python': '🟦',
-        'Java': '☕',
-        'Go': '🔵',
-        'Rust': '🦀',
-        'PHP': '💜',
-        'C++': '⚙️',
-        'Shell': '💻'
-    };
-    return emojis[language] || '📝';
+    return moment(date).tz('Africa/Dar_es_Salaam').format('MMM D, YYYY');
 }
 
 async function repoCommand(sock, chatId, message) {
-    if (!sock || !chatId) return;
-
     try {
-        // Send loading reaction
-        await sock.sendMessage(chatId, { react: { text: '🔄', key: message.key } });
+        const repoOwner = 'brightsonnjegite-sudo';
+        const repoName = 'BIGMANJ-XMD';
+        const apiUrl = `https://api.github.com/repos/${repoOwner}/${repoName}`;
+        const zipUrl = `https://github.com/${repoOwner}/${repoName}/archive/refs/heads/main.zip`;
+        const repoUrl = `https://github.com/${repoOwner}/${repoName}`;
 
-        // Fetch repository data
-  const repoRes = await axios.get(
-  REPO_API_URL,
-  {
-    headers: {
-      'User-Agent': 'BIGMANJ-XMD'
-    }
-  }
-);
+        // Show loading reaction
+        await sock.sendMessage(chatId, { react: { text: '⏳', key: message.key } });
 
-        const repo = repoRes.data;
+        // Fetch repo data from GitHub API
+        const response = await axios.get(apiUrl);
+        const repoData = response.data;
 
-        // Build repository information text (reduced links)
-        const repoText = `✨ *${repo.name.toUpperCase()}*\n\n` +
-            `👤 *Owner:* ${repo.owner.login}\n` +
-            `⭐ *Stars:* ${repo.stargazers_count.toLocaleString()}\n` +
-            `🍴 *Forks:* ${repo.forks_count.toLocaleString()}\n` +
-            `👁️ *Watchers:* ${repo.watchers_count.toLocaleString()}\n` +
-            `🐛 *Open Issues:* ${repo.open_issues_count}\n\n` +
-            `${getLanguageEmoji(repo.language)} *Language:* ${repo.language || 'Not specified'}\n` +
-            `📜 *License:* ${repo.license?.name || 'N/A'}\n` +
-            `📅 *Last Updated:* ${formatDate(repo.updated_at)}\n\n` +
-            `📝 *Description:*\n${repo.description || 'No description available'}\n\n` +
-            `💡 *Type .menu to see all commands*`;
+        // Extract repository details
+        const repoNameDisplay = repoData.name;
+        const owner = repoData.owner.login;
+        const stars = repoData.stargazers_count;
+        const forks = repoData.forks_count;
+        const watchers = repoData.watchers_count;
+        const openIssues = repoData.open_issues_count;
+        const language = repoData.language;
+        const license = repoData.license ? repoData.license.name : 'N/A';
+        const lastUpdated = formatDate(repoData.updated_at);
+        const description = repoData.description || 'No description provided.';
 
-        // Send interactive message with CTA buttons
-        await sendInteractiveMessage(sock, chatId, {
-            text: repoText,
-            footer: "BIGMANj DT Tech • Powered by Bigmanj",
-            interactiveButtons: [
-                {
-                    name: 'cta_copy',
-                    buttonParamsJson: JSON.stringify({
-                        display_text: '📋 Copy Repo Link',
-                        copy_code: repo.html_url
-                    })
-                },
-                {
-                    name: 'cta_url',
-                    buttonParamsJson: JSON.stringify({
-                        display_text: '🌐 Open Repository',
-                        url: repo.html_url
-                    })
-                },
-                {
-                    name: 'quick_reply',
-                    buttonParamsJson: JSON.stringify({
-                        display_text: '📦 Download ZIP',
-                        id: 'repo_download_zip'
-                    })
-                }
-            ]
+        // Construct stylish message
+        const caption = `✨ *${repoNameDisplay}*
+
+👤 *Owner:* ${owner}
+⭐ *Stars:* ${stars}
+🍴 *Forks:* ${forks}
+👁️ *Watchers:* ${watchers}
+🐛 *Open Issues:* ${openIssues}
+
+🟨 *Language:* ${language}
+📜 *License:* ${license}
+📅 *Last Updated:* ${lastUpdated}
+
+📝 *Description:*
+${description}
+
+💡 *Type .menu to see all commands*
+> bigmanj tech™`;
+
+        // Define the buttons
+        const buttons = [
+            { id: 'copy_repo_link', text: '📋 COPY REPO LINK' },
+            { id: 'open_repo', text: '🌐 OPEN REPOSITORY' },
+            { id: 'download_zip', text: '📦 DOWNLOAD ZIP' }
+        ];
+
+        // Send the message with buttons
+        await sendButtons(sock, chatId, {
+            title: '⚡ BIGMANj ENGINE',
+            text: caption,
+            footer: 'BIGMANj DT Tech • Powered by Bigmanj',
+            buttons: buttons
         }, { quoted: message });
 
-        // Send success reaction
+        // React with ✅ after sending
         await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } });
 
-    } catch (err) {
-        console.error('Repo Error:', err);
-
-        // Send error message
+    } catch (error) {
+        console.error('Repo command error:', error);
         await sock.sendMessage(chatId, {
-            text: `❌ *Error fetching repo data.*\n\n_${err.message}_`
+            text: '❌ *Failed to fetch repository data!*\nPlease check the repository URL or try again later.'
         }, { quoted: message });
-
-        // Send error reaction
         await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
     }
 }
