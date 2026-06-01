@@ -58,26 +58,39 @@ const CATEGORIES = {
     ]
 };
 
+// Function to add letter prefix (a, b, c...) to commands
+function addLetterPrefix(cmds) {
+    const letters = 'abcdefghijklmnopqrstuvwxyz';
+    return cmds.map((cmd, idx) => {
+        const letter = letters[idx % letters.length];
+        return `${letter}) ${cmd}`;
+    });
+}
+
 const handler = async (sock, chatId, m) => {
     const senderId = m.key.participant || m.key.remoteJid;
     const greeting = getGreeting();
     const mention = getMentionNumber(senderId);
 
     let caption = `✨ ΥΟ!!, @${mention}\n\n`;
-    caption += `📋 *ALL COMMANDS BY CATEGORY*\n`;
+    caption += `📋 *ALL COMMANDS BY CATEGORY (A-Z)*\n`;
     caption += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
     for (const [category, cmds] of Object.entries(CATEGORIES)) {
         caption += `*${category}*\n`;
-        caption += `▸ ${cmds.join('  ▸  ')}\n\n`;
+        const listed = addLetterPrefix(cmds);
+        for (const item of listed) {
+            caption += `└➤ ${item}\n`;
+        }
+        caption += `\n`;
     }
 
     caption += `🚀 *BIGMANj MD* — Fast • Powerful • Reliable\n\n> bigmanj tech™`;
 
-    // React with 📋 first
+    // React with 📋
     await sock.sendMessage(chatId, { react: { text: '📋', key: m.key } });
 
-    // Send the full list as a message
+    // Send the message
     await sock.sendMessage(chatId, {
         text: caption,
         mentions: [senderId]
