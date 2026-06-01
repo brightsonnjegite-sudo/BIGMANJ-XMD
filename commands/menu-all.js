@@ -74,13 +74,12 @@ const handler = async (sock, chatId, m) => {
 
     caption += `🚀 *BIGMANj MD* — Fast • Powerful • Reliable\n\n> bigmanj tech™`;
 
-    // React 📋 kabla ya kutuma
+    // React with 📋 first
     await sock.sendMessage(chatId, { react: { text: '📋', key: m.key } });
 
-    // Tuma picha na ujumbe
+    // Send the full list as a message
     await sock.sendMessage(chatId, {
-        image: { url: 'https://files.catbox.moe/g273hp.jpg' },
-        caption: caption,
+        text: caption,
         mentions: [senderId]
     }, { quoted: m });
 };
