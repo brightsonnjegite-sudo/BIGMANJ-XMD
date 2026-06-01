@@ -149,6 +149,9 @@ const mylveCommand = require('./commands/mylve');
 // NEW: .autourl command
 const autourlCommand = require('./commands/autourl');
 
+// NEW: .menu-all command
+const menuAllCommand = require('./commands/menu-all');
+
 // ==================== SUBMENU IMPORTS ====================
 const menuGeneral = require('./commands/menu-general');
 const menuGroup = require('./commands/menu-group');
@@ -389,6 +392,12 @@ async function handleMessages(sock, messageUpdate, printLog) {
                 break;
             case userMessage === '.menu-automation':
                 await menuAutomation(sock, chatId, message);
+                commandExecuted = true;
+                break;
+
+            // ========== .menu-all COMMAND ==========
+            case userMessage === '.menu-all':
+                await menuAllCommand(sock, chatId, message);
                 commandExecuted = true;
                 break;
 
