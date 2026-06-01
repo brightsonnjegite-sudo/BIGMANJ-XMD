@@ -61,10 +61,7 @@ const CATEGORIES = {
 // Function to add letter prefix (a, b, c...)
 function addLetterPrefix(cmds) {
     const letters = 'abcdefghijklmnopqrstuvwxyz';
-    return cmds.map((cmd, idx) => {
-        const letter = letters[idx % letters.length];
-        return `${letter}) ${cmd}`;
-    });
+    return cmds.map((cmd, idx) => `${letters[idx % letters.length]}) ${cmd}`);
 }
 
 const handler = async (sock, chatId, m) => {
@@ -79,9 +76,7 @@ const handler = async (sock, chatId, m) => {
     for (const [category, cmds] of Object.entries(CATEGORIES)) {
         caption += `*${category}*\n`;
         const listed = addLetterPrefix(cmds);
-        for (const item of listed) {
-            caption += `└➤ ${item}\n`;
-        }
+        for (const item of listed) caption += `└➤ ${item}\n`;
         caption += `\n`;
     }
 
@@ -92,7 +87,7 @@ const handler = async (sock, chatId, m) => {
 
     // Send as image with caption
     await sock.sendMessage(chatId, {
-        image: { url: 'https://h.uguu.se/HHDZCBqD.jpg' },
+        image: { url: 'https://files.catbox.moe/g273hp.jpg' },
         caption: caption,
         mentions: [senderId]
     }, { quoted: m });
