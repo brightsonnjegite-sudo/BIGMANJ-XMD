@@ -12,22 +12,14 @@ const handler = async (sock, chatId, m) => {
     const senderId = m.key.participant || m.key.remoteJid;
     const greeting = getGreeting();
     const mention = getMentionNumber(senderId);
-
     const commands = ['.metallic', '.ice', '.snow', '.impressive', '.matrix', '.light', '.neon', '.devil', '.purple', '.thunder', '.leaves', '.1917', '.arena', '.hacker', '.sand', '.blackpink', '.glitch', '.fire', '.wasted', '.mickey', '.blur', '.take', '.steal', '.crop', '.toimg'];
 
-    let caption = `✨ ΥΟ!!, @${mention}\n\n`;
-    caption += `🎨 EFFECTS MENU\n`;
-    caption += `━━━━━━━━━━━━━━━━━━━━━━\n`;
+    let caption = `✨ ΥΟ!!, @${mention}\n\n🎨 EFFECTS MENU\n━━━━━━━━━━━━━━━━━━━━━━\n`;
     for (const cmd of commands) caption += `• ${cmd}\n`;
-    caption += `\n🎨 Create amazing text and image effects.\n💡 Make your content stand out.\n\n`;
-    caption += `🚀 *BIGMANj MD* — Fast • Powerful • Reliable\n\n> bigmanj tech™`;
+    caption += `\n🎨 Text and image effects.\n🚀 *BIGMANj MD* — Fast • Powerful • Reliable\n\n> bigmanj tech™`;
 
     await sock.sendMessage(chatId, { react: { text: '🎨', key: m.key } });
-    await sock.sendMessage(chatId, {
-        image: { url: 'https://h.uguu.se/hBRwaXmo.jpg' },
-        caption: caption,
-        mentions: [senderId]
-    }, { quoted: m });
+    await sock.sendMessage(chatId, { image: { url: 'https://files.catbox.moe/g273hp.jpg' }, caption, mentions: [senderId] }, { quoted: m });
 };
 
 module.exports = handler;
