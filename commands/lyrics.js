@@ -9,11 +9,6 @@ const getGreeting = () => {
     return '🌙 Habari za Jioni';
 };
 
-/**
- * Fetch lyrics using Popcat.xyz API
- * @param {string} songTitle - Song name or artist + title
- * @returns {Promise<object>}
- */
 async function fetchLyrics(songTitle) {
     const url = `https://api.popcat.xyz/lyrics?song=${encodeURIComponent(songTitle)}`;
     const response = await axios.get(url, { timeout: 15000 });
@@ -23,11 +18,6 @@ async function fetchLyrics(songTitle) {
     return response.data;
 }
 
-/**
- * Format duration from seconds to MM:SS
- * @param {number} seconds
- * @returns {string}
- */
 function formatDuration(seconds) {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -36,10 +26,9 @@ function formatDuration(seconds) {
 
 const lyricsCommand = async (sock, chatId, message, args) => {
     try {
-        // Extract song title from arguments
         let songTitle = args || '';
         if (!songTitle) {
-            // If no args, try to get from quoted message or caption?
+            // Check if quoted message exists
             const quoted = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
             if (quoted && (quoted.conversation || quoted.extendedTextMessage?.text)) {
                 songTitle = (quoted.conversation || quoted.extendedTextMessage?.text || '').trim();
@@ -52,17 +41,14 @@ const lyricsCommand = async (sock, chatId, message, args) => {
             }
         }
 
-        // React with ⏳
         await sock.sendMessage(chatId, { react: { text: '⏳', key: message.key } });
 
-        // Fetch lyrics
         const data = await fetchLyrics(songTitle);
 
         const senderId = message.key.participant || message.key.remoteJid;
         const mention = getMentionNumber(senderId);
         const greeting = getGreeting();
 
-        // Format the caption
         let caption = `✨ ${greeting} @${mention}\n\n`;
         caption += `🎵 *LYRICS*\n━━━━━━━━━━━━━━━━━━━━━━\n`;
         caption += `*Title:* ${data.title}\n`;
@@ -72,24 +58,21 @@ const lyricsCommand = async (sock, chatId, message, args) => {
         caption += `*Lyrics:*\n${data.lyrics}\n\n`;
         caption += `🚀 *BIGMANj MD* — Fast • Powerful • Reliable\n\n> bigmanj tech™`;
 
-        // If lyrics are too long, split into multiple messages (optional)
         if (caption.length > 60000) {
             await sock.sendMessage(chatId, { text: '❌ Lyrics too long to send.' }, { quoted: message });
             await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
             return;
         }
 
-        // Send the result
         await sock.sendMessage(chatId, {
             text: caption,
             mentions: [senderId]
         }, { quoted: message });
 
-        // React with ✅
         await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } });
 
     } catch (error) {
-        console.error('Lyrics command error:', error.message);
+        console.error('Lyrics error:', error.message);
         await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
         let errorMsg = '❌ *Lyrics not found.*\nTry a different song title or check spelling.';
         if (error.message.includes('timeout')) errorMsg = '⏰ Request timeout. Try again.';
@@ -98,9 +81,4 @@ const lyricsCommand = async (sock, chatId, message, args) => {
     }
 };
 
-module.exports = {
-    name: 'lyrics',
-    aliases: ['lyric', 'lirik'],
-    category: 'fun',
-    execute: lyricsCommand
-};
+module.exports = lyricsCommand;
