@@ -12,9 +12,7 @@ const getGreeting = () => {
 async function fetchLyrics(songTitle) {
     const url = `https://api.popcat.xyz/lyrics?song=${encodeURIComponent(songTitle)}`;
     const response = await axios.get(url, { timeout: 15000 });
-    if (!response.data || response.data.error) {
-        throw new Error('Lyrics not found');
-    }
+    if (!response.data || response.data.error) throw new Error('Lyrics not found');
     return response.data;
 }
 
@@ -64,11 +62,7 @@ const lyricsCommand = async (sock, chatId, message, args) => {
             return;
         }
 
-        await sock.sendMessage(chatId, {
-            text: caption,
-            mentions: [senderId]
-        }, { quoted: message });
-
+        await sock.sendMessage(chatId, { text: caption, mentions: [senderId] }, { quoted: message });
         await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } });
 
     } catch (error) {
