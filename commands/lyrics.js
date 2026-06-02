@@ -9,31 +9,38 @@ const getGreeting = () => {
     return '🌙 Habari za Jioni';
 };
 
-// Helper to format duration from seconds
-function formatDuration(seconds) {
-    if (!seconds) return 'Unknown';
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+// Parse query: try to split into artist and title
+function parseQuery(query) {
+    // Check for " - " separator
+    if (query.includes(' - ')) {
+        const parts = query.split(' - ');
+        return { artist: parts[0].trim(), title: parts[1].trim() };
+    }
+    // Check for "by" separator
+    if (query.toLowerCase().includes(' by ')) {
+        const parts = query.split(/ by /i);
+        return { artist: parts[1].trim(), title: parts[0].trim() };
+    }
+    // Default: treat whole query as title, artist unknown
+    return { artist: null, title: query };
 }
 
-// ---------- API 1: Lyrist (best, no key) ----------
-async function fetchLyricsLyrist(query) {
-    const url = `https://lyrist.vercel.app/api/lyrics?q=${encodeURIComponent(query)}`;
+// API 1: lyrics.ovh (needs artist and title)
+async function fetchLyricsOvh(artist, title) {
+    const url = `https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`;
     const response = await axios.get(url, { timeout: 10000 });
     if (response.data && response.data.lyrics) {
         return {
-            title: response.data.title || 'Unknown',
-            artist: response.data.artist || 'Unknown',
+            title: title,
+            artist: artist,
             lyrics: response.data.lyrics,
-            duration: null,
-            album: null
+            source: 'lyrics.ovh'
         };
     }
-    throw new Error('Lyrist not found');
+    throw new Error('Not found');
 }
 
-// ---------- API 2: Some Random API (backup) ----------
+// API 2: Some Random API (fallback)
 async function fetchLyricsSomeRandom(query) {
     const url = `https://some-random-api.com/lyrics?title=${encodeURIComponent(query)}`;
     const response = await axios.get(url, { timeout: 10000 });
@@ -42,37 +49,27 @@ async function fetchLyricsSomeRandom(query) {
             title: response.data.title,
             artist: response.data.author,
             lyrics: response.data.lyrics,
-            duration: null,
-            album: null
+            source: 'some-random-api'
         };
     }
-    throw new Error('SomeRandom not found');
+    throw new Error('Not found');
 }
 
-// ---------- API 3: Genius (requires API key) ----------
-// To use Genius, get a free API key from https://genius.com/api-clients
-// Then set process.env.GENIUS_API_KEY or replace 'YOUR_GENIUS_KEY'
-async function fetchLyricsGenius(query) {
-    const apiKey = process.env.GENIUS_API_KEY || 'YOUR_GENIUS_KEY'; // Replace or set env
-    if (!apiKey || apiKey === 'YOUR_GENIUS_KEY') {
-        throw new Error('Genius API key not configured');
+// API 3: Lyrist (last fallback)
+async function fetchLyricsLyrist(query) {
+    const url = `https://lyrist.vercel.app/api/lyrics?q=${encodeURIComponent(query)}`;
+    const response = await axios.get(url, { timeout: 10000 });
+    if (response.data && response.data.lyrics) {
+        return {
+            title: response.data.title || query,
+            artist: response.data.artist || 'Unknown',
+            lyrics: response.data.lyrics,
+            source: 'lyrist'
+        };
     }
-    // Search for song
-    const searchUrl = `https://api.genius.com/search?q=${encodeURIComponent(query)}`;
-    const searchRes = await axios.get(searchUrl, {
-        headers: { Authorization: `Bearer ${apiKey}` },
-        timeout: 10000
-    });
-    const hits = searchRes.data.response.hits;
-    if (!hits.length) throw new Error('Genius no results');
-    const songPath = hits[0].result.url;
-    // Genius doesn't provide raw lyrics via API, we'd need to scrape.
-    // For simplicity, we'll skip Genius or just return the URL.
-    // Instead, we'll use a free lyrics scraper fallback.
-    throw new Error('Genius not fully supported without scraping');
+    throw new Error('Not found');
 }
 
-// ---------- Main command with fallback ----------
 const lyricsCommand = async (sock, chatId, message, args) => {
     try {
         let query = args || '';
@@ -83,7 +80,7 @@ const lyricsCommand = async (sock, chatId, message, args) => {
             }
             if (!query) {
                 await sock.sendMessage(chatId, {
-                    text: '❌ *Usage:* .lyrics <song title>\nExample: .lyrics Dior Pop Smoke'
+                    text: '❌ *Usage:* .lyrics <song title> or .lyrics <artist> - <title>\n\nExamples:\n• .lyrics Dior Pop Smoke\n• .lyrics Ruth B - Dandelions\n• .lyrics Blinding Lights The Weeknd'
                 }, { quoted: message });
                 return;
             }
@@ -92,21 +89,43 @@ const lyricsCommand = async (sock, chatId, message, args) => {
         await sock.sendMessage(chatId, { react: { text: '⏳', key: message.key } });
 
         let result = null;
-        let apiUsed = '';
+        let errorMsg = '';
 
-        // Try Lyrist first
-        try {
-            result = await fetchLyricsLyrist(query);
-            apiUsed = 'Lyrist';
-        } catch (err) {
-            console.log('Lyrist failed, trying SomeRandom...');
+        // Parse query
+        const { artist, title } = parseQuery(query);
+
+        // Try API 1: lyrics.ovh if we have artist and title
+        if (artist && title) {
+            try {
+                result = await fetchLyricsOvh(artist, title);
+            } catch (e) {
+                errorMsg = e.message;
+                console.log(`lyrics.ovh failed for ${artist} - ${title}: ${e.message}`);
+            }
+        }
+
+        // If failed, try Some Random API
+        if (!result) {
             try {
                 result = await fetchLyricsSomeRandom(query);
-                apiUsed = 'SomeRandom';
-            } catch (err2) {
-                console.log('SomeRandom failed, no more fallbacks');
-                throw new Error('No lyrics found from any source');
+            } catch (e) {
+                errorMsg = e.message;
+                console.log(`SomeRandom failed: ${e.message}`);
             }
+        }
+
+        // If still failed, try Lyrist
+        if (!result) {
+            try {
+                result = await fetchLyricsLyrist(query);
+            } catch (e) {
+                errorMsg = e.message;
+                console.log(`Lyrist failed: ${e.message}`);
+            }
+        }
+
+        if (!result) {
+            throw new Error(`No lyrics found for "${query}". Try using "Artist - Song Title" format.`);
         }
 
         const senderId = message.key.participant || message.key.remoteJid;
@@ -117,11 +136,9 @@ const lyricsCommand = async (sock, chatId, message, args) => {
         caption += `🎵 *LYRICS*\n━━━━━━━━━━━━━━━━━━━━━━\n`;
         caption += `*Title:* ${result.title}\n`;
         caption += `*Artist:* ${result.artist}\n`;
-        if (result.album) caption += `*Album:* ${result.album}\n`;
-        if (result.duration) caption += `*Duration:* ${formatDuration(result.duration)}\n`;
         caption += `\n*Lyrics:*\n${result.lyrics}\n\n`;
         caption += `🚀 *BIGMANj MD* — Fast • Powerful • Reliable\n\n> bigmanj tech™`;
-        caption += `\n_⚡ via ${apiUsed}_`;
+        caption += `\n_📡 via ${result.source}_`;
 
         if (caption.length > 60000) {
             await sock.sendMessage(chatId, { text: '❌ Lyrics too long to send.' }, { quoted: message });
@@ -135,7 +152,7 @@ const lyricsCommand = async (sock, chatId, message, args) => {
     } catch (error) {
         console.error('Lyrics error:', error.message);
         await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
-        let errorMsg = '❌ *Lyrics not found.*\nTry a different song title or check spelling.';
+        let errorMsg = error.message || '❌ *Lyrics not found.*\nTry a different song title or use format: Artist - Song Title';
         if (error.message.includes('timeout')) errorMsg = '⏰ Request timeout. Try again.';
         if (error.message.includes('network')) errorMsg = '🌐 Network error. Try later.';
         await sock.sendMessage(chatId, { text: errorMsg }, { quoted: message });
