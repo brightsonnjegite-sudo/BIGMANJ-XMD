@@ -9,58 +9,23 @@ const getGreeting = () => {
     return '🌙 Habari za Jioni';
 };
 
-// --------------------------------------------------------------
-//  Hardcoded lyrics for Bhuju (always works)
-// --------------------------------------------------------------
-const BHUJU_LYRICS = {
-    title: 'Bhuju',
-    artist: 'Alikiba ft Mbosso',
-    lyrics: `[Alikiba]
-Nimekupata wewe ni tamu kama asali
-Nikiwa na wewe napoteza akili
-Nakupenda mno, siwezi kukwepa
-Mapenzi yako yamenifunga kama kamba
+// ✅ THIS FUNCTION WAS MISSING
+function parseQuery(query) {
+    if (query.includes(' - ')) {
+        const parts = query.split(' - ');
+        return { artist: parts[0].trim(), title: parts[1].trim() };
+    }
+    if (query.toLowerCase().includes(' by ')) {
+        const parts = query.split(/ by /i);
+        return { artist: parts[1].trim(), title: parts[0].trim() };
+    }
+    return { artist: null, title: query };
+}
 
-[Mbosso]
-Ah, Bhuju! Unanifanya nijue upendo
-Wewe ni zawadi kutoka kwa Mungu
-Kila nikikuona, moyo wangu unaruka
-Bhuju, wewe ni maisha yangu
-
-[Chorus - Wote]
-Bhuju, Bhuju, usiniondoke
-Mapenzi yako yamenifunga sana
-Bhuju, Bhuju, nakupenda mpenzi
-Wewe ni wangu, mimi ni wako milele
-
-[Alikiba]
-Nikiwa na wewe, siku zangu ni za furaha
-Wewe ni sababu ya tabasamu langu
-Nakupenda kwa dhati, usinikatae
-Maisha yangu wewe ndio nyota yangu
-
-[Mbosso]
-Bhuju, nakupenda kwa roho yangu yote
-Wewe ni mwanga katika giza langu
-Siku za usoni, nataka kuwa na wewe
-Bhuju, wewe ni mpenzi wangu wa milele
-
-[Chorus - Wote]
-Bhuju, Bhuju, usiniondoke
-Mapenzi yako yamenifunga sana
-Bhuju, Bhuju, nakupenda mpenzi
-Wewe ni wangu, mimi ni wako milele
-
-[Outro]
-Bhuju... Bhuju... I love you...`
-};
-
-// --------------------------------------------------------------
-//  Nexray API (primary)
-// --------------------------------------------------------------
+// Nexray API (primary)
 async function fetchFromNexray(query) {
     const url = `https://api.nexray.eu.cc/search/lyrics?q=${encodeURIComponent(query)}`;
-    const response = await axios.get(url, { timeout: 10000 });
+    const response = await axios.get(url, { timeout: 15000 });
     const data = response.data;
     if (data && data.status === true && data.result && data.result.lyrics && data.result.lyrics.plain_lyrics) {
         return {
@@ -70,19 +35,17 @@ async function fetchFromNexray(query) {
             source: 'Nexray'
         };
     }
-    throw new Error('No lyrics found in Nexray response');
+    throw new Error('No lyrics from Nexray');
 }
 
-// --------------------------------------------------------------
-//  Fallback APIs
-// --------------------------------------------------------------
+// Fallback APIs
 async function fetchFromSomeRandom(query) {
     const url = `https://some-random-api.com/lyrics?title=${encodeURIComponent(query)}`;
     const res = await axios.get(url, { timeout: 10000 });
     if (res.data?.lyrics) {
         return { title: res.data.title, artist: res.data.author, lyrics: res.data.lyrics, source: 'SomeRandom' };
     }
-    throw new Error('No lyrics');
+    throw new Error('No lyrics from SomeRandom');
 }
 
 async function fetchFromLyricsOvh(artist, title) {
@@ -91,7 +54,7 @@ async function fetchFromLyricsOvh(artist, title) {
     if (res.data?.lyrics) {
         return { title, artist, lyrics: res.data.lyrics, source: 'lyrics.ovh' };
     }
-    throw new Error('No lyrics');
+    throw new Error('No lyrics from lyrics.ovh');
 }
 
 async function fetchFromLyrist(query) {
@@ -100,12 +63,10 @@ async function fetchFromLyrist(query) {
     if (res.data?.lyrics) {
         return { title: res.data.title || query, artist: res.data.artist || 'Unknown', lyrics: res.data.lyrics, source: 'Lyrist' };
     }
-    throw new Error('No lyrics');
+    throw new Error('No lyrics from Lyrist');
 }
 
-// --------------------------------------------------------------
-//  Main command
-// --------------------------------------------------------------
+// Main command
 const lyricsCommand = async (sock, chatId, message, args) => {
     try {
         let query = (args || '').trim();
@@ -116,7 +77,7 @@ const lyricsCommand = async (sock, chatId, message, args) => {
             }
             if (!query) {
                 await sock.sendMessage(chatId, {
-                    text: '❌ *Usage:* .lyrics <song title> or .lyrics <artist> - <title>\n\nExamples:\n• .lyrics Bhuju\n• .lyrics Alikiba - Bhuju'
+                    text: '❌ *Usage:* .lyrics <song title>\nExample: .lyrics Bado Nakupenda Zuchu'
                 }, { quoted: message });
                 return;
             }
@@ -125,37 +86,35 @@ const lyricsCommand = async (sock, chatId, message, args) => {
         await sock.sendMessage(chatId, { react: { text: '⏳', key: message.key } });
 
         let result = null;
-        const lowerQuery = query.toLowerCase();
 
-        // Check hardcoded lyrics first
-        if (lowerQuery.includes('bhuju')) {
-            result = BHUJU_LYRICS;
-            result.source = 'Hardcoded (Bigmanj DB)';
-        } else {
-            // Try Nexray API first
+        // Try Nexray first
+        try {
+            result = await fetchFromNexray(query);
+        } catch (e) {
+            console.log(`Nexray failed: ${e.message}`);
+            // Fallback to SomeRandom
             try {
-                result = await fetchFromNexray(query);
-            } catch (e) {
-                console.log(`Nexray failed: ${e.message}`);
-                // Then try other APIs
-                try { result = await fetchFromSomeRandom(query); }
-                catch (e2) { console.log(`SomeRandom failed: ${e2.message}`); }
-                if (!result) {
-                    const { artist, title } = parseQuery(query);
-                    if (artist && title) {
-                        try { result = await fetchFromLyricsOvh(artist, title); }
-                        catch (e3) { console.log(`lyrics.ovh failed: ${e3.message}`); }
-                    }
+                result = await fetchFromSomeRandom(query);
+            } catch (e2) {
+                console.log(`SomeRandom failed: ${e2.message}`);
+                // Try lyrics.ovh if artist-title format
+                const { artist, title } = parseQuery(query);
+                if (artist && title) {
+                    try {
+                        result = await fetchFromLyricsOvh(artist, title);
+                    } catch (e3) {}
                 }
+                // Last fallback
                 if (!result) {
-                    try { result = await fetchFromLyrist(query); }
-                    catch (e4) { console.log(`Lyrist failed: ${e4.message}`); }
+                    try {
+                        result = await fetchFromLyrist(query);
+                    } catch (e4) {}
                 }
             }
         }
 
         if (!result) {
-            throw new Error(`No lyrics found for "${query}". Try "Bhuju" or "Alikiba - Bhuju".`);
+            throw new Error(`No lyrics found for "${query}". Try "Bado Nakupenda" or "Zuchu - Bado Nakupenda".`);
         }
 
         const senderId = message.key.participant || message.key.remoteJid;
@@ -182,7 +141,7 @@ const lyricsCommand = async (sock, chatId, message, args) => {
     } catch (error) {
         console.error('Lyrics error:', error.message);
         await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
-        let errorMsg = error.message || '❌ *Lyrics not found.*\nTry: .lyrics Bhuju';
+        let errorMsg = error.message || '❌ *Lyrics not found.*\nTry a different song title.';
         if (error.message.includes('timeout')) errorMsg = '⏰ Request timeout. Try again.';
         if (error.message.includes('network')) errorMsg = '🌐 Network error. Try later.';
         await sock.sendMessage(chatId, { text: errorMsg }, { quoted: message });
