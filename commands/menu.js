@@ -53,7 +53,7 @@ async function sendAudio(sock, chatId, quotedMsg) {
     } catch (err) { console.error('Audio send error:', err.message); }
 }
 
-const sendMainMenu = async (sock, chatId, m, senderId) => {
+const sendMainMenu = async (sock, chatId, m, senderId, latency) => {
     moment.tz.setDefault('Africa/Dar_es_Salaam');
     const now = moment();
     const greeting = getGreeting();
@@ -61,6 +61,10 @@ const sendMainMenu = async (sock, chatId, m, senderId) => {
     const runtime = formatUptime(process.uptime());
     const date = now.format('DD/MM/YYYY');
     const time = now.format('HH:mm:ss');
+
+    // Determine speed emoji based on latency
+    const speedEmoji = latency < 100 ? '🚀' : (latency < 300 ? '⚡' : '🐢');
+    const speedStatus = latency < 100 ? 'Excellent' : (latency < 300 ? 'Good' : 'Slow');
 
     let caption = '';
     caption += `╭━━━〔 *BIGMANj MD* 〕━━━⬣\n`;
@@ -79,6 +83,7 @@ const sendMainMenu = async (sock, chatId, m, senderId) => {
     caption += `╰━━━━━━━━━━━━━━⬣\n\n`;
     caption += `${greeting} @${mention}\n\n`;
     caption += `🤖 *BIGMANj MD* – *WhatsApp Bot* developed in collaboration with *Ωuantum Base Developer*.\n\n`;
+    caption += `🚀 *Speed:* ${latency}ms ${speedEmoji} (${speedStatus})\n`;
     caption += `👑 Owner : ${OWNER_NAME}\n`;
     caption += `📞 Owner No : ${OWNER_NUMBER}\n`;
     caption += `⚡ Commands : ${TOTAL_COMMANDS}\n`;
@@ -100,8 +105,18 @@ const menuHandler = async (sock, chatId, m) => {
     const text = getMessageText(m).trim().toLowerCase();
     if (text !== '.menu') return;
     const senderId = m.key.participant || m.key.remoteJid;
+
+    // Measure latency: start time just before reaction
+    const startTime = Date.now();
+
+    // React 📌
     await sock.sendMessage(chatId, { react: { text: '📌', key: m.key } });
-    await sendMainMenu(sock, chatId, m, senderId);
+
+    // Calculate latency
+    const latency = Date.now() - startTime;
+
+    // Send main menu with latency info
+    await sendMainMenu(sock, chatId, m, senderId, latency);
 };
 
 module.exports = menuHandler;
