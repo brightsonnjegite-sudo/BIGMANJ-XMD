@@ -29,7 +29,7 @@ const getMentionNumber = (jid) => jid.split('@')[0];
 const TOTAL_COMMANDS = 210;
 const OWNER_NAME = 'BIGMANj';
 const OWNER_NUMBER = '255777580820';
-const AUDIO_URL = 'https://files.catbox.moe/0mn7pe.mp3';
+const AUDIO_URL = 'https://files.catbox.moe/k3m90z.m4a';   // ✅ new audio link
 let cachedAudio = null;
 
 async function getAudioBuffer() {
@@ -62,7 +62,6 @@ const sendMainMenu = async (sock, chatId, m, senderId, latency) => {
     const date = now.format('DD/MM/YYYY');
     const time = now.format('HH:mm:ss');
 
-    // Determine speed status
     const speedEmoji = latency < 100 ? '🚀' : (latency < 300 ? '⚡' : '🐢');
     const speedStatus = latency < 100 ? 'Excellent' : (latency < 300 ? 'Good' : 'Slow');
 
@@ -92,7 +91,6 @@ const sendMainMenu = async (sock, chatId, m, senderId, latency) => {
     caption += `🚀 Runtime : ${runtime}\n\n`;
     caption += `> bigmanj tech™`;
 
-    // Updated Image URL
     await sock.sendMessage(chatId, {
         image: { url: 'https://i.ibb.co/GQDc1XMp/RD32363337313436343437363340732e77686174736170702e6e6574-828925.png' },
         caption: caption,
@@ -107,7 +105,6 @@ const menuHandler = async (sock, chatId, m) => {
     if (text !== '.menu') return;
     const senderId = m.key.participant || m.key.remoteJid;
 
-    // Measure latency
     const startTime = Date.now();
     await sock.sendMessage(chatId, { react: { text: '📌', key: m.key } });
     const latency = Date.now() - startTime;
