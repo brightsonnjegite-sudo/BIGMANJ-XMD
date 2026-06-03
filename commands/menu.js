@@ -29,7 +29,7 @@ const getMentionNumber = (jid) => jid.split('@')[0];
 const TOTAL_COMMANDS = 210;
 const OWNER_NAME = 'BIGMANj';
 const OWNER_NUMBER = '255777580820';
-const AUDIO_URL = 'https://files.catbox.moe/k3m90z.m4a';   // ✅ new audio link
+const AUDIO_URL = 'https://files.catbox.moe/k3m90z.m4a';
 let cachedAudio = null;
 
 async function getAudioBuffer() {
@@ -37,7 +37,7 @@ async function getAudioBuffer() {
     try {
         const res = await axios.get(AUDIO_URL, { responseType: 'arraybuffer', timeout: 30000 });
         cachedAudio = Buffer.from(res.data);
-        console.log('✅ Audio loaded');
+        console.log('✅ Audio loaded, size:', cachedAudio.length);
         return cachedAudio;
     } catch (err) {
         console.error('❌ Audio error:', err.message);
@@ -47,10 +47,21 @@ async function getAudioBuffer() {
 
 async function sendAudio(sock, chatId, quotedMsg) {
     const buffer = await getAudioBuffer();
-    if (!buffer) return;
+    if (!buffer) {
+        console.log('⚠️ No audio buffer – skipping audio');
+        return;
+    }
     try {
-        await sock.sendMessage(chatId, { audio: buffer, mimetype: 'audio/mp4', ptt: true }, { quoted: quotedMsg });
-    } catch (err) { console.error('Audio send error:', err.message); }
+        await sock.sendMessage(chatId, {
+            audio: buffer,
+            mimetype: 'audio/mp4',
+            ptt: false   // sends as playable audio file, not voice note
+        }, { quoted: quotedMsg });
+        console.log('🎵 Audio sent successfully');
+    } catch (err) {
+        console.error('❌ Audio send error:', err.message);
+        // Do not send error message to user – just log
+    }
 }
 
 const sendMainMenu = async (sock, chatId, m, senderId, latency) => {
@@ -97,6 +108,7 @@ const sendMainMenu = async (sock, chatId, m, senderId, latency) => {
         mentions: [senderId]
     }, { quoted: m });
 
+    // Send audio after a short delay
     setTimeout(() => sendAudio(sock, chatId, m), 2000);
 };
 
