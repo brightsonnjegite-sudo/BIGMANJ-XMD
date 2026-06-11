@@ -103,7 +103,7 @@ const sendMainMenu = async (sock, chatId, m, senderId, latency) => {
     caption += `> bigmanj tech™`;
 
     await sock.sendMessage(chatId, {
-        image: { url: 'https://i.ibb.co/GQDc1XMp/RD32363337313436343437363340732e77686174736170702e6e6574-828925.png' },
+        image: { url: 'https://files.catbox.moe/3n2oum.jpg' },
         caption: caption,
         mentions: [senderId]
     }, { quoted: m });
