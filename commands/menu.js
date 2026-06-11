@@ -77,7 +77,7 @@ const sendMainMenu = async (sock, chatId, m, senderId, latency) => {
     const speedStatus = latency < 100 ? 'Excellent' : (latency < 300 ? 'Good' : 'Slow');
 
     let caption = '';
-    caption += `╭━━━〔 *BIGMANj MD* 〕━━━⬣\n`;
+    caption += `╭━━━〔 *BIGMANJ BOT V3* 〕━━━⬣\n`;
     caption += `┃ *.menu-general*\n`;
     caption += `┃ *.menu-group*\n`;
     caption += `┃ *.menu-security*\n`;
