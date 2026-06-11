@@ -92,7 +92,7 @@ const sendMainMenu = async (sock, chatId, m, senderId, latency) => {
     caption += `┃ *.menu-all*\n`;
     caption += `╰━━━━━━━━━━━━━━⬣\n\n`;
     caption += `${greeting} @${mention}\n\n`;
-    caption += `🤖 *BIGMANj MD* – *WhatsApp Bot* developed in collaboration with *Ωuantum Base Developer*.\n\n`;
+    caption += `🤖 *BIGMANJ BOT V3* – *WhatsApp Bot* developed in collaboration with *Ωuantum Base Developer*.\n\n`;
     caption += `🚀 *Speed:* ${latency}ms ${speedEmoji} (${speedStatus})\n`;
     caption += `👑 Owner : ${OWNER_NAME}\n`;
     caption += `📞 Owner No : ${OWNER_NUMBER}\n`;
@@ -100,7 +100,7 @@ const sendMainMenu = async (sock, chatId, m, senderId, latency) => {
     caption += `📅 Date : ${date}\n`;
     caption += `⏰ Time : ${time}\n`;
     caption += `🚀 Runtime : ${runtime}\n\n`;
-    caption += `> bigmanj tech™`;
+    caption += `> © bigmanj tech™`;
 
     await sock.sendMessage(chatId, {
         image: { url: 'https://files.catbox.moe/3n2oum.jpg' },
