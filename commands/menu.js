@@ -1,7 +1,7 @@
 const moment = require('moment-timezone');
 const axios = require('axios');
 
-// ----------------------------------- Helper functions -----------------------------------
+// Helper functions
 const getMessageText = (m) => {
     if (m.message?.conversation) return m.message.conversation;
     if (m.message?.extendedTextMessage?.text) return m.message.extendedTextMessage.text;
@@ -32,11 +32,10 @@ const TOTAL_COMMANDS = 210;
 const OWNER_NAME = 'bigmanj tech';
 const OWNER_NUMBER = '255777580820';
 
-// ----------------------------------- Multimedia URLs -----------------------------------
+// Audio URL (working MP3)
 const AUDIO_URL = 'https://www.learningcontainer.com/wp-content/uploads/2020/02/Kalimba.mp3';
-const THUMBNAIL_URL = 'https://files.catbox.moe/uii8bi.jpg';   // Custom thumbnail for audio
 
-// Cyclic image URLs (8 images)
+// Cyclic images (8 images)
 const IMAGE_URLS = [
     'https://files.catbox.moe/rt3wya.jpg',
     'https://files.catbox.moe/69csjf.jpg',
@@ -50,15 +49,13 @@ const IMAGE_URLS = [
 
 let currentImageIndex = 0;
 let cachedAudio = null;
-let cachedThumbnail = null;
 
-// ----------------------------------- Audio & thumbnail caching -----------------------------------
 async function getAudioBuffer() {
     if (cachedAudio) return cachedAudio;
     try {
         const res = await axios.get(AUDIO_URL, { responseType: 'arraybuffer', timeout: 30000 });
         cachedAudio = Buffer.from(res.data);
-        console.log('✅ Audio loaded, size:', cachedAudio.length);
+        console.log('✅ Audio loaded');
         return cachedAudio;
     } catch (err) {
         console.error('❌ Audio error:', err.message);
@@ -66,48 +63,26 @@ async function getAudioBuffer() {
     }
 }
 
-async function getThumbnailBuffer() {
-    if (cachedThumbnail) return cachedThumbnail;
-    try {
-        const res = await axios.get(THUMBNAIL_URL, { responseType: 'arraybuffer', timeout: 30000 });
-        cachedThumbnail = Buffer.from(res.data);
-        console.log('✅ Thumbnail loaded, size:', cachedThumbnail.length);
-        return cachedThumbnail;
-    } catch (err) {
-        console.error('❌ Thumbnail error:', err.message);
-        return null;
-    }
-}
-
 async function sendAudio(sock, chatId, quotedMsg) {
-    const audioBuffer = await getAudioBuffer();
-    const thumbnailBuffer = await getThumbnailBuffer();
-
-    if (!audioBuffer) {
-        await sock.sendMessage(chatId, { text: "🔊 *Audio unavailable*" }, { quoted: quotedMsg });
+    const buffer = await getAudioBuffer();
+    if (!buffer) {
+        await sock.sendMessage(chatId, { text: "🔊 Audio unavailable." }, { quoted: quotedMsg });
         return;
     }
-
-    const messagePayload = {
-        audio: audioBuffer,
-        mimetype: 'audio/mpeg',
-        ptt: false,                // regular MP3, not voice note
-        fileName: 'menu_audio.mp3'
-    };
-    if (thumbnailBuffer) {
-        messagePayload.jpegThumbnail = thumbnailBuffer;
-    }
-
     try {
-        await sock.sendMessage(chatId, messagePayload, { quoted: quotedMsg });
-        console.log('🎵 Audio sent with custom thumbnail');
+        await sock.sendMessage(chatId, {
+            audio: buffer,
+            mimetype: 'audio/mpeg',
+            ptt: false,
+            fileName: 'menu_audio.mp3'
+        }, { quoted: quotedMsg });
+        console.log('🎵 Audio sent');
     } catch (err) {
         console.error('❌ Audio send error:', err.message);
-        await sock.sendMessage(chatId, { text: "❌ Failed to send audio." }, { quoted: quotedMsg });
     }
 }
 
-// ----------------------------------- Image menu (Russian description + English details) -----------------------------------
+// ----- CLEAN, SIMPLE MENU (no ugly boxes) -----
 async function sendImageMenu(sock, chatId, m, senderId, latency) {
     const imageUrl = IMAGE_URLS[currentImageIndex];
     currentImageIndex = (currentImageIndex + 1) % IMAGE_URLS.length;
@@ -123,31 +98,26 @@ async function sendImageMenu(sock, chatId, m, senderId, latency) {
     const speedEmoji = latency < 100 ? '🚀' : (latency < 300 ? '⚡' : '🐢');
     const speedStatus = latency < 100 ? 'Excellent' : (latency < 300 ? 'Good' : 'Slow');
 
+    // Clean, minimalist caption (no box drawing characters)
     let caption = '';
-    caption += `⚠ ДОСТУП РАЗРЕШЁН ⚠\n`;
+    caption += `⚠️ *ДОСТУП РАЗРЕШЁН* ⚠️\n`;
     caption += `*BIGMANJ BOT V3*\n`;
-    caption += `Скорость выше предела.\n`;
-    caption += `Интеллект без границ.\n`;
-    caption += `Мощь нового поколения.\n`;
-    caption += `СТАТУС: АКТИВЕН\n`;
-    caption += `РЕЖИМ: ЭЛИТА\n\n`;
+    caption += `Скорость выше предела. Интеллект без границ. Мощь нового поколения.\n`;
+    caption += `*СТАТУС:* АКТИВЕН   *РЕЖИМ:* ЭЛИТА\n\n`;
     caption += `${greeting} @${mention}\n\n`;
     caption += `📌 *User Info*\n`;
-    caption += `   • Status: User\n`;
-    caption += `   • Name: @${mention}\n`;
-    caption += `   • Prefix: .\n\n`;
+    caption += `• Status: User\n`;
+    caption += `• Name: @${mention}\n`;
+    caption += `• Prefix: .\n\n`;
     caption += `📌 *Bot Info*\n`;
-    caption += `   • Speed: ${latency}ms ${speedEmoji} (${speedStatus})\n`;
-    caption += `   • Uptime: ${runtime}\n`;
-    caption += `   • Commands: ${TOTAL_COMMANDS}\n`;
-    caption += `   • Date: ${date} | Time: ${time}\n\n`;
+    caption += `• Speed: ${latency}ms ${speedEmoji} (${speedStatus})\n`;
+    caption += `• Uptime: ${runtime}\n`;
+    caption += `• Commands: ${TOTAL_COMMANDS}\n`;
+    caption += `• Date: ${date} | Time: ${time}\n\n`;
     caption += `📌 *Sub‑menus*\n`;
-    caption += `   .menu-general    .menu-group\n`;
-    caption += `   .menu-security   .menu-ai\n`;
-    caption += `   .menu-download   .menu-effects\n`;
-    caption += `   .menu-owner      .menu-settings\n`;
-    caption += `   .menu-tools      .menu-fun\n`;
-    caption += `   .menu-automation  .menu-all\n\n`;
+    caption += `• .menu-general\n• .menu-group\n• .menu-security\n• .menu-ai\n`;
+    caption += `• .menu-download\n• .menu-effects\n• .menu-owner\n• .menu-settings\n`;
+    caption += `• .menu-tools\n• .menu-fun\n• .menu-automation\n• .menu-all\n\n`;
     caption += `~bigmanj tech~\n`;
     caption += `© bigmanj tech ™\n`;
     caption += `~*BIGMANJ BOT V3*~ by ~*© bigmanj tech ™ with ♥︎*~`;
@@ -158,14 +128,14 @@ async function sendImageMenu(sock, chatId, m, senderId, latency) {
             caption: caption,
             mentions: [senderId]
         }, { quoted: m });
-        console.log(`🖼️ Menu image sent (index ${(currentImageIndex-1+IMAGE_URLS.length)%IMAGE_URLS.length})`);
+        console.log(`🖼️ Menu image sent (${currentImageIndex-1 >= 0 ? currentImageIndex-1 : IMAGE_URLS.length-1})`);
     } catch (err) {
-        console.error('❌ Image menu send error:', err.message);
+        console.error('❌ Image error:', err.message);
         await sock.sendMessage(chatId, { text: caption, mentions: [senderId] }, { quoted: m });
     }
 }
 
-// ----------------------------------- Main handler -----------------------------------
+// Main handler
 const menuHandler = async (sock, chatId, m) => {
     const text = getMessageText(m).trim().toLowerCase();
     if (text !== '.menu') return;
