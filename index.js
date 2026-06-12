@@ -19,7 +19,8 @@ const {
     delay 
 } = require("@whiskeysockets/baileys");
 
-const { handleMessages, handleGroupParticipantUpdate, handleStatus } = require("./main");
+// ✅ UPDATED IMPORT: added handlePostUpdateMessage
+const { handleMessages, handleGroupParticipantUpdate, handleStatus, handlePostUpdateMessage } = require("./main");
 const { handleAnticall } = require("./commands/anticall");
 const { getButtonId, isButtonResponse, autoDetectButtonCommand, isCommandId } = require("./lib/buttonLoader");
 const store = require("./lib/lightweight_store");
@@ -122,7 +123,6 @@ async function startMickeyBot() {
                 keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'silent' }).child({ level: 'silent' }))
             },
             markOnlineOnConnect: true,
-            // --- FIXES ADDED HERE ---
             syncFullHistory: false, 
             generateHighQualityLinkPreview: true,
             patchMessageBeforeSending: (message) => {
@@ -132,7 +132,6 @@ async function startMickeyBot() {
                 }
                 return message;
             },
-            // ------------------------
             getMessage: async (key) => {
                 if (!key || !key.id) return undefined;
                 const jid = key.remoteJid || key.participant || key.sender || '';
@@ -151,32 +150,24 @@ async function startMickeyBot() {
                 const mek = chatUpdate.messages[0];
                 if (!mek?.message) return;
 
-                // 🔘 Button & List Handler - Detect any button ID
                 if (isButtonResponse(mek)) {
                     const buttonId = getButtonId(mek);
                     if (buttonId) {
                         console.log(chalk.cyan(`🔘 Button/List Response: ${buttonId}`));
-                        
-                        // Check if button is a command (starts with .)
                         if (isCommandId(buttonId)) {
-                            // Auto-detect and convert to command for main handler
                             const command = autoDetectButtonCommand(mek);
                             if (command) {
-                                // Inject command into message for handling
                                 mek.message.conversation = command;
                                 mek.message.extendedTextMessage = null;
                                 await handleMessages(Mickey, chatUpdate, true);
                                 return;
                             }
                         } else {
-                            // Static button handlers (handle any ID dynamically)
                             console.log(chalk.green(`✅ Button handler triggered for ID: ${buttonId}`));
-                            // Button handlers can be extended here for custom logic
                         }
                     }
                 }
 
-                // Status updates
                 if (mek.key?.remoteJid === "status@broadcast") {
                     await handleStatus(Mickey, chatUpdate);
                     return;
@@ -228,7 +219,6 @@ async function startMickeyBot() {
                     console.log(chalk.yellow('⚠️ Could not send welcome message\n'));
                 }
 
-                // Send startup notification to bot owner with newsletter reference
                 try {
                     await Mickey.sendMessage(myNumber, {
                         text: '🔔 *Channel Follow Active*\n\nBot is now following:\n120363398106360290@newsletter\n\n✅ All notifications enabled'
@@ -237,6 +227,9 @@ async function startMickeyBot() {
                 } catch (e) {
                     console.log(chalk.yellow(`⚠️ Could not send newsletter notification: ${e.message}\n`));
                 }
+
+                // ✅ CALL POST-UPDATE HANDLER (sends third message if an update just finished)
+                await handlePostUpdateMessage(Mickey);
 
                 console.log(chalk.bgGreen.black("  ✅  STARTUP COMPLETE  ✅  "));
                 console.log(chalk.green('🤖 Bot is ready for tasks.\n'));
@@ -255,7 +248,6 @@ async function startMickeyBot() {
             }
         });
 
-        // --- Custom Pairing Implementation (Unchanged) ---
         if (pairingCode && !Mickey.authState.creds.registered) {
             console.log('\n' + chalk.bgMagenta.white("  ⏳  PAIRING REQUIRED - SCAN DEVICE  ⏳  ") + '\n');
 
@@ -268,7 +260,6 @@ async function startMickeyBot() {
             setTimeout(async () => {
                 try {
                     let code = await Mickey.requestPairingCode(num, "MICKDADY");
-
                     console.log(chalk.bgCyan.black("  🔐  YOUR CUSTOM PAIRING CODE  🔐  "));
                     console.log(chalk.white.bold("  CODE: ") + chalk.green.bold("MICKDADY"));
                     console.log(chalk.yellow("  → Enter this code in WhatsApp (Settings → Linked Devices)\n"));
@@ -292,14 +283,14 @@ async function startMickeyBot() {
 }
 
 async function initializeBot() {
-  const startupMode = await chooseStartupMode();
-  if (startupMode === 'telegram') {
-    console.log(chalk.bgBlue.white("\n  🚀  STARTING TELEGRAM BOT  🚀  \n"));
-    startTelegramBot();
-  } else {
-    console.log(chalk.bgBlue.white("\n  🚀  STARTING WHATSAPP CONNECTION  🚀  \n"));
-    startMickeyBot();
-  }
+    const startupMode = await chooseStartupMode();
+    if (startupMode === 'telegram') {
+        console.log(chalk.bgBlue.white("\n  🚀  STARTING TELEGRAM BOT  🚀  \n"));
+        startTelegramBot();
+    } else {
+        console.log(chalk.bgBlue.white("\n  🚀  STARTING WHATSAPP CONNECTION  🚀  \n"));
+        startMickeyBot();
+    }
 }
 
 initializeBot();
