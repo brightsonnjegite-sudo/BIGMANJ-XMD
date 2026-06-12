@@ -121,7 +121,7 @@ const videoCommand = require('./commands/video');
 const sudoCommand = require('./commands/sudo');
 const stickercropCommand = require('./commands/stickercrop');
 const mickeyCommand = require('./commands/Mickey');
-const updateCommand = require('./commands/update');
+const { updateCommand } = require('./commands/update');   // <-- FIXED: destructuring
 const checkUpdatesCommand = require('./commands/checkupdates');
 const { igsCommand } = require('./commands/igs');
 const { anticallCommand, readState: readAnticallState } = require('./commands/anticall');
@@ -232,7 +232,6 @@ async function sendImageWithCopyButton(sock, chatId, imageUrl) {
 
 /**
  * Check if the bot was just updated (flag file exists) and send the third message.
- * This function should be called after the WhatsApp connection is successfully opened.
  */
 async function handlePostUpdateMessage(sock) {
     const flagFile = path.join(process.cwd(), 'data', 'update_just_done.flag');
@@ -976,5 +975,5 @@ module.exports = {
     handleStatus,
     handleGroupParticipantUpdate,
     initOnlineTracker,
-    handlePostUpdateMessage   // <-- Added this
+    handlePostUpdateMessage
 };
