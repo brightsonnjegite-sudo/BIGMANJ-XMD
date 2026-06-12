@@ -1,11 +1,7 @@
 const moment = require('moment-timezone');
 const axios = require('axios');
 const sharp = require('sharp');
-const fs = require('fs');
-const path = require('path');
 const os = require('os');
-
-// ---------- Baileys imports ----------
 const { generateWAMessageFromContent, proto } = require('@whiskeysockets/baileys');
 
 // ---------- Helper functions ----------
@@ -56,6 +52,7 @@ async function getRandomImageBuffer() {
     currentImageIndex++;
     try {
         const res = await axios.get(url, { responseType: 'arraybuffer', timeout: 15000 });
+        // Resize to 300x300 for optimal display
         const resized = await sharp(res.data)
             .resize(300, 300, { fit: 'cover' })
             .jpeg({ quality: 80 })
@@ -63,7 +60,13 @@ async function getRandomImageBuffer() {
         return resized;
     } catch (err) {
         console.error('Image error:', err.message);
-        return null;
+        // Fallback: return original buffer without resizing
+        try {
+            const res2 = await axios.get(url, { responseType: 'arraybuffer', timeout: 15000 });
+            return Buffer.from(res2.data);
+        } catch {
+            return null;
+        }
     }
 }
 
@@ -94,7 +97,7 @@ async function sendButtonV3(sock, chatId, options) {
         buttonsMessage: {
             contentText: body,
             footerText: footer,
-            headerType: 6,
+            headerType: 6,  // location message header (large card)
             locationMessage: {
                 degreesLatitude: 0,
                 degreesLongitude: 0,
@@ -136,7 +139,7 @@ const menuHandler = async (sock, chatId, m) => {
 
     const senderId = m.key.participant || m.key.remoteJid;
     const pushname = m.pushName || "User";
-    const isOwner = (senderId.split('@')[0] === "255777580820");
+    const isOwner = (senderId.split('@')[0] === "255777580820"); // adjust owner number as needed
     const status = isOwner ? "👑 OWNER" : "🤖 USER";
     const start = Date.now();
     await sock.sendMessage(chatId, { react: { text: '📌', key: m.key } });
@@ -179,6 +182,7 @@ const menuHandler = async (sock, chatId, m) => {
 
     const thumbnail = await getRandomImageBuffer();
     if (!thumbnail) {
+        // Fallback: send plain text menu
         await sock.sendMessage(chatId, { text: caption, mentions: [senderId] }, { quoted: m });
         const audioBuffer = await getAudioBuffer();
         if (audioBuffer) {
