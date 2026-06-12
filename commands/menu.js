@@ -88,7 +88,7 @@ function getSmartMenuCaption(pushname, mention, ping, ramBar, ramPercent, runtim
 ┃ 🌑 Dark Futuristic UI
 ┃ 🎵 MP3 audio & voice tools
 ┃ 📸 Dynamic menu images
-┃> *~script 📃 is construction🚧~*
+┃> *~script 📃 is under construction🚧~*
  > *~sorry 😔 for my rough work~*
 ╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━⬣
 © bigmanj tech ™ with ♥︎
