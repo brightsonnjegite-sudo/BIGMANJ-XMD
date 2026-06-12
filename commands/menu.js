@@ -21,15 +21,15 @@ const formatUptime = (seconds) => {
 
 const getGreeting = () => {
     const hour = moment().tz('Africa/Dar_es_Salaam').hour();
-    if (hour >= 5 && hour < 12) return '🌅 Habari za Asubuhi';
-    if (hour >= 12 && hour < 18) return '🌤️ Habari za Mchana';
-    return '🌙 Habari za Jioni';
+    if (hour >= 5 && hour < 12) return '🌅 Good morning';
+    if (hour >= 12 && hour < 18) return '🌤️ Good afternoon';
+    return '🌙 Good evening';
 };
 
 const getMentionNumber = (jid) => jid.split('@')[0];
 
 const TOTAL_COMMANDS = 210;
-const OWNER_NAME = 'bigmanj tech ';
+const OWNER_NAME = 'BIGMANj';
 const OWNER_NUMBER = '255777580820';
 
 // ----------------------------------- Multimedia URLs -----------------------------------
@@ -47,7 +47,7 @@ const IMAGE_URLS = [
     'https://files.catbox.moe/gom02i.jpg'
 ];
 
-// Global counter for cycling images (resets after last)
+// Global counter for cycling images
 let currentImageIndex = 0;
 
 // Cache for voice buffer
@@ -76,7 +76,7 @@ async function sendVoiceNote(sock, chatId, quotedMsg) {
         await sock.sendMessage(chatId, {
             audio: buffer,
             mimetype: 'audio/mpeg',
-            ptt: true          // sends as voice note
+            ptt: true
         }, { quoted: quotedMsg });
         console.log('🎤 Voice note sent successfully');
     } catch (err) {
@@ -84,9 +84,8 @@ async function sendVoiceNote(sock, chatId, quotedMsg) {
     }
 }
 
-// ----------------------------------- Shortened menu text (shows "Read more") -----------------------------------
+// ----------------------------------- Menu with English caption, correct footer, no foreign branding -----------------------------------
 async function sendImageMenu(sock, chatId, m, senderId, latency) {
-    // Get current image URL and cycle index for next time
     const imageUrl = IMAGE_URLS[currentImageIndex];
     currentImageIndex = (currentImageIndex + 1) % IMAGE_URLS.length;
 
@@ -101,20 +100,33 @@ async function sendImageMenu(sock, chatId, m, senderId, latency) {
     const speedEmoji = latency < 100 ? '🚀' : (latency < 300 ? '⚡' : '🐢');
     const speedStatus = latency < 100 ? 'Excellent' : (latency < 300 ? 'Good' : 'Slow');
 
-    // SHORTENED MENU – only the essentials + a note to use submenus
+    // Clean English caption – no Zero Trash / Ghost
     let caption = '';
     caption += `╭━━〔 *BIGMANJ BOT V3* 〕━━⬣\n`;
     caption += `┃${greeting} @${mention}\n`;
-    caption += `┃🚀 Speed: ${latency}ms ${speedEmoji} (${speedStatus})\n`;
-    caption += `┃👑 Owner: ${OWNER_NAME}\n`;
-    caption += `┃📞 Owner No: ${OWNER_NUMBER}\n`;
-    caption += `┃⚡ Commands: ${TOTAL_COMMANDS}\n`;
-    caption += `┃📅 ${date}  ⏰ ${time}\n`;
-    caption += `┃🚀 Runtime: ${runtime}\n`;
+    caption += `┃🤖 WhatsApp automation tool\n`;
+    caption += `┃🔧 Make your WhatsApp smarter\n`;
     caption += `╰━━━━━━━━━━━━━━━━━━⬣\n\n`;
-    caption += `📌 *Type one of these:*\n`;
-    caption += `▸ .menu-general\n▸ .menu-group\n▸ .menu-security\n▸ .menu-ai\n▸ .menu-download\n▸ .menu-effects\n▸ .menu-owner\n▸ .menu-settings\n▸ .menu-tools\n▸ .menu-fun\n▸ .menu-automation\n▸ .menu-all\n\n`;
-    caption += `© bigmanj tech™ with ♥︎`;
+    caption += `📌 *User Info*\n`;
+    caption += `   • Status: User\n`;
+    caption += `   • Name: @${mention}\n`;
+    caption += `   • Prefix: .\n\n`;
+    caption += `📌 *Bot Info*\n`;
+    caption += `   • Speed: ${latency}ms ${speedEmoji} (${speedStatus})\n`;
+    caption += `   • Uptime: ${runtime}\n`;
+    caption += `   • Commands: ${TOTAL_COMMANDS}\n`;
+    caption += `   • Date: ${date} | Time: ${time}\n\n`;
+    caption += `📌 *Sub‑menus*\n`;
+    caption += `   .menu-general    .menu-group\n`;
+    caption += `   .menu-security   .menu-ai\n`;
+    caption += `   .menu-download   .menu-effects\n`;
+    caption += `   .menu-owner      .menu-settings\n`;
+    caption += `   .menu-tools      .menu-fun\n`;
+    caption += `   .menu-automation  .menu-all\n\n`;
+    // Footer as requested
+    caption += `~bigmanj tech~\n`;
+    caption += `© bigmanj tech ™\n`;
+    caption += `~*BIGMANJ BOT V3*~ by ~*© bigmanj tech ™ with ♥︎*~`;
 
     try {
         await sock.sendMessage(chatId, {
@@ -122,15 +134,14 @@ async function sendImageMenu(sock, chatId, m, senderId, latency) {
             caption: caption,
             mentions: [senderId]
         }, { quoted: m });
-        console.log(`🖼️ Image menu sent (index ${currentImageIndex-1 >= 0 ? currentImageIndex-1 : IMAGE_URLS.length-1})`);
+        console.log(`🖼️ Menu image sent (index ${(currentImageIndex-1+IMAGE_URLS.length)%IMAGE_URLS.length})`);
     } catch (err) {
         console.error('❌ Image menu send error:', err.message);
-        // Fallback: send text-only menu (also shortened)
         await sock.sendMessage(chatId, { text: caption, mentions: [senderId] }, { quoted: m });
     }
 }
 
-// ----------------------------------- Main menu handler -----------------------------------
+// ----------------------------------- Main handler -----------------------------------
 const menuHandler = async (sock, chatId, m) => {
     const text = getMessageText(m).trim().toLowerCase();
     if (text !== '.menu') return;
@@ -140,9 +151,9 @@ const menuHandler = async (sock, chatId, m) => {
     await sock.sendMessage(chatId, { react: { text: '📌', key: m.key } });
     const latency = Date.now() - startTime;
 
-    // 1. Send image menu (shortened)
+    // 1. Send image menu (with new English caption and correct footer)
     await sendImageMenu(sock, chatId, m, senderId, latency);
-    // 2. Send voice note (MP3) – after the menu
+    // 2. Send voice note after menu
     await sendVoiceNote(sock, chatId, m);
 };
 
