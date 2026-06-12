@@ -51,8 +51,8 @@ async function toimgCommand(sock, chatId, message) {
         // Convert .webp to .png using sharp
         const pngBuffer = await sharp(stickerBuffer).png().toBuffer();
 
-        // ✅ Updated caption with footer "bigmanj tech"
-        const caption = `*BIGMANJ*\n\nbigmanj tech`;
+        // ✅ Updated caption with footer
+        const caption = `📡 bigmanj converter\n\n© bigmanj tech ™ with ♥︎`;
 
         // Send the image
         await sock.sendMessage(chatId, {
