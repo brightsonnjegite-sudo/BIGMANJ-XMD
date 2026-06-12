@@ -4,9 +4,18 @@ const path = require('path');
 const axios = require('axios');
 const chalk = require('chalk');
 
+// Load owner number from settings.js
+let settings = {};
+try {
+    settings = require('./settings');
+} catch (e) {
+    console.log('⚠️ settings.js not found, using default owner number');
+}
+const OWNER_NUMBER = (settings.ownerNumber || '255777580820').toString().replace(/\D/g, '');
+console.log(`✅ Owner number loaded: ${OWNER_NUMBER}`);
+
 const REPO_URL = 'https://github.com/brightsonnjegite-sudo/BIGMANJ-XMD';
 const REPO_API_URL = 'https://api.github.com/repos/brightsonnjegite-sudo/BIGMANJ-XMD';
-const OWNER_NUMBER = '255777580820'; // Owner number - only this number can use .update
 
 // Helper function to change reaction with delay
 async function cycleReactions(sock, messageKey, reactions, delayMs = 2000) {
@@ -57,7 +66,7 @@ async function updateCommand(sock, chatId, message, customUrl = null) {
         }
 
         // Send first message (Part One)
-        const part1 = `🚀 *BIGMANJ BOT V3 UPDATE START.......* 🚀\n_______________________________\n*$ sudo bot update 🔄*\n *Fetching updates.......from BIGMANJ REPO 📡*\n> *Downloading... [███████████████] 100% ✅*\n *Extracting... OK 📦*\n *Copying files... 14/14 📋*\n *Preserving data... Session, Stats, Users 🔐*`;
+        const part1 = `🚀 *BIGMANJ BOT V3 UPDATE START.......* 🚀\n_______________________________\n*$ sudo bot update 🔄*\n> *Fetching updates.......from BIGMANJ REPO 📡*\n> *Downloading... [███████████████] 100% ✅*\n> *Extracting... OK 📦*\n> *Copying files... 14/14 📋*\n> *Preserving data... Session, Stats, Users 🔐*`;
         const sentMsg1 = await sock.sendMessage(chatId, { text: part1 });
         cycleReactions(sock, sentMsg1, ['🔄', '♻️'], 2000).catch(console.error);
 
