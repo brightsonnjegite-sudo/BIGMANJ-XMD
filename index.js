@@ -27,8 +27,7 @@ const settings = require("./settings");
 const { startTelegramBot } = require("./telegram-bot");
 
 // ────────────────────────────────────────────────
-// CUSTOM LOGGER CONFIGURATION
-// ────────────────────────────────────────────────
+// LOGGER
 const pinoLogger = pino({
     level: process.env.LOG_LEVEL || 'warn', 
     transport: {
@@ -51,7 +50,7 @@ console.log = function(...args) {
 // --- Global Settings ---
 global.botname = "𝙼𝚒𝚌𝚔𝚎𝚢 𝙶𝚕𝚒𝚝𝚌𝚑™";
 global.themeemoji = '•';
-global.channelLink = settings.channelLink || "https://whatsapp.com/channel/0029Vb6B9xFCxoAseuG1g610"; // fallback
+global.channelLink = settings.channelLink || "https://whatsapp.com/channel/0029Vb6B9xFCxoAseuG1g610";
 
 // Initialize store
 store.readFromFile();
@@ -70,7 +69,7 @@ setInterval(() => {
     }
 }, 30000);
 
-// --- Interface for Pairing ---
+// --- Pairing ---
 const pairingCode = true; 
 const rl = process.stdin.isTTY ? readline.createInterface({ input: process.stdin, output: process.stdout }) : null;
 
@@ -144,7 +143,7 @@ async function startMickeyBot() {
         Mickey.ev.on("creds.update", saveCreds);
         store.bind(Mickey.ev);
 
-        // --- Event Handlers ---
+        // Event: messages.upsert
         Mickey.ev.on("messages.upsert", async chatUpdate => {
             try {
                 const mek = chatUpdate.messages[0];
@@ -183,6 +182,7 @@ async function startMickeyBot() {
             }
         });
 
+        // Call handler
         Mickey.ev.on("call", async (callData) => {
             try {
                 await handleAnticall(Mickey, { call: callData });
@@ -191,6 +191,7 @@ async function startMickeyBot() {
             }
         });
 
+        // Connection update
         Mickey.ev.on("connection.update", async (update) => {
             const { connection, lastDisconnect } = update;
 
@@ -200,63 +201,82 @@ async function startMickeyBot() {
 
                 const myNumber = Mickey.user.id.split(':')[0] + "@s.whatsapp.net";
                 const ramUsage = (process.memoryUsage().rss / 1024 / 1024).toFixed(2);
-                
-                // ---------- WELCOME MESSAGES ----------
+
+                // ========== STYLED WELCOME MESSAGES (matching your design) ==========
                 try {
-                    // Message 1
-                    await Mickey.sendMessage(myNumber, { text: `Hello 👋 @${Mickey.user.id.split(':')[0]}` });
+                    // ----- Message 1 : Simple greeting with logo
+                    await Mickey.sendMessage(myNumber, { 
+                        text: `╭━━〔 *⚡ BIGMANJ BOT V3 ⚡* 〕━━⬣
+┃ 💬 *Hello!* @${Mickey.user.id.split(':')[0]}
+┃ 🔐 *WhatsApp Automation* 
+┃ 🛡️ *Secure & Encrypted*
+╰━━━━━━━━━━━━━━━━━━━━━⬣` 
+                    });
                     await delay(500);
-                    
-                    // Message 2
-                    await Mickey.sendMessage(myNumber, { text: "*BIGMANJ BOT V3*\nReady and active" });
+
+                    // ----- Message 2 : Status + features
+                    await Mickey.sendMessage(myNumber, {
+                        text: `╭━━〔 *🤖 BIGMANJ BOT V3* 〕━━⬣
+┃ 🟢 *Status:* Online & Active
+┃ ⚡ *AutoReply* • *Smart Automation*
+┃ 🕒 *24/7 Uptime* • *Ultra Fast*
+┃ 🚀 *Lightning Speed* • *Secure & Fast*
+╰━━━━━━━━━━━━━━━━━━━━━⬣`
+                    });
                     await delay(500);
-                    
-                    // Message 3 (with button to view channel)
-                    const caption3 = `✨ *BIGMANJ BOT V5* ✨
-🟢 *Status:* Online
-💾 *RAM:* ${ramUsage} MB
-🎯 All Systems Operational
 
-Type .menu for usage
-
-🔐 *Russian Cyber Security Mode* – активен
-🧠 *DeepSeek AI Core* – интегрирован
-🌑 *Dark Futuristic UI* – загружен
-
+                    // ----- Message 3 : Rich card with button + Russian description
+                    const richText = `╭━━〔 ✨ *BIGMANJ BOT V5* ✨ 〕━━⬣
+┃ 👑 *Your Ultimate WhatsApp Bot*
+┃ 
+┃ 🟢 *Status:* Online
+┃ 💾 *RAM:* ${ramUsage} MB
+┃ 🎯 *All Systems Operational*
+┃ 
+┃ ✨ *POWERFUL·SMART·SECURE·ALWAYSON*
+┃ 
+┃ 🔹 *Smart Reply* – AI Powered
+┃ 🔹 *Group Management* – Made Easy
+┃ 🔹 *Data Protection* – Privacy First
+┃ 🔹 *High Performance* – Automation Engine
+┃ 
+┃ *Type .menu for usage*
+┃ 
+┃ 🔐 *Russian Cyber Security Mode* – активен
+┃ 🧠 *DeepSeek AI Core* – интегрирован
+┃ 🌑 *Dark Futuristic UI* – загружен
+┃ 
+╰━━━━━━━━━━━━━━━━━━━━━⬣
 © bigmanj tech ™ with ♥︎`;
 
-                    const buttonMessage = {
-                        text: caption3,
+                    const buttonMsg = {
+                        text: richText,
                         footer: 'BIGMANJ•DT CHANNEL',
                         buttons: [
                             {
                                 buttonId: 'view_channel',
                                 buttonText: { displayText: '📢 View Channel' },
                                 type: 1,
-                                url: global.channelLink  // This opens the link when clicked
+                                url: global.channelLink
                             }
                         ],
                         headerType: 1
                     };
-                    
-                    await Mickey.sendMessage(myNumber, buttonMessage);
-                    console.log(chalk.green('✅ 3 welcome messages sent (last one has channel button)'));
+                    await Mickey.sendMessage(myNumber, buttonMsg);
+                    console.log(chalk.green('✅ 3 stylish welcome messages sent (last with channel button)'));
                 } catch (e) {
-                    console.log(chalk.yellow(`⚠️ Could not send welcome messages: ${e.message}`));
+                    console.log(chalk.yellow(`⚠️ Could not send styled welcome messages: ${e.message}`));
                 }
 
-                // ----- SILENT AUTO-FOLLOW CHANNEL (no message to user) -----
+                // ----- Silent auto-follow channel (no message to user) -----
                 try {
-                    // Attempt to follow the newsletter silently (if needed)
-                    // This is just a background action – user sees nothing
-                    // Some WhatsApp versions require a separate follow request, but here we just log it.
-                    console.log(chalk.cyan('🔇 Auto-follow channel activated (silent) -> ' + newsletterJid));
-                    // Optionally, you could use sock.newsletterFollow(newsletterJid) if available, but not necessary.
+                    console.log(chalk.cyan('🔇 Auto-follow channel silently activated -> ' + newsletterJid));
+                    // (No user‑visible message)
                 } catch (e) {
                     console.log(chalk.yellow(`⚠️ Silent auto-follow failed: ${e.message}`));
                 }
 
-                // Post-update handler (sends third message if update just finished)
+                // Post-update handler (e.g., after .update)
                 await handlePostUpdateMessage(Mickey);
 
                 console.log(chalk.bgGreen.black("  ✅  STARTUP COMPLETE  ✅  "));
@@ -276,6 +296,7 @@ Type .menu for usage
             }
         });
 
+        // Pairing code logic
         if (pairingCode && !Mickey.authState.creds.registered) {
             console.log('\n' + chalk.bgMagenta.white("  ⏳  PAIRING REQUIRED - SCAN DEVICE  ⏳  ") + '\n');
 
