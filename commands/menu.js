@@ -117,7 +117,7 @@ const menuHandler = async (sock, chatId, m) => {
 ✨ *Premium AI Assistant* – готов
 🌑 *Dark Futuristic UI* – загружен
 
-*Tap a button below:*
+*Use the buttons below:* (if you don't see buttons, type the commands manually)
     `.trim();
 
     // 1. Send the image with caption
@@ -132,23 +132,32 @@ const menuHandler = async (sock, chatId, m) => {
         await sock.sendMessage(chatId, { text: caption, mentions: [senderId] }, { quoted: m });
     }
 
-    // 2. Send buttons (using the standard Baileys buttons format)
-    //    If your version doesn't support buttons, it will silently fail – but we'll also send a text fallback.
+    // 2. Send interactive buttons (modern format, works on most Baileys versions)
     try {
         await sock.sendMessage(chatId, {
             text: "📌 *Quick navigation*",
             footer: "© BIGMANJ BOT V3 — by bigmanj tech ™",
-            buttons: [
-                { buttonId: ".menu-all", buttonText: { displayText: "📚 All Menu" }, type: 1 },
-                { buttonId: ".menu-owner", buttonText: { displayText: "👑 Owner Menu" }, type: 1 }
-            ],
-            viewOnce: true
+            interactiveButtons: [
+                {
+                    name: "quick_reply",
+                    buttonParamsJson: JSON.stringify({
+                        display_text: "📚 All Menu",
+                        id: ".menu-all"
+                    })
+                },
+                {
+                    name: "quick_reply",
+                    buttonParamsJson: JSON.stringify({
+                        display_text: "👑 Owner Menu",
+                        id: ".menu-owner"
+                    })
+                }
+            ]
         });
     } catch (err) {
-        console.warn("Buttons not supported, sending text fallback.");
-        // Fallback: send clickable command links
+        console.warn("Interactive buttons not supported, sending text fallback.");
         await sock.sendMessage(chatId, {
-            text: "📚 *All Menu* – type `.menu-all`\n👑 *Owner Menu* – type `.menu-owner`",
+            text: "📚 *All Menu* – type `.menu-all`\n👑 *Owner Menu* – type `.menu-owner`\n\n© BIGMANJ BOT V3 — by bigmanj tech ™",
             mentions: [senderId]
         }, { quoted: m });
     }
