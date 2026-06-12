@@ -245,7 +245,6 @@ async function handlePostUpdateMessage(sock) {
         } catch (err) {
             console.error('Failed to send post-update message:', err);
         } finally {
-            // ✅ FIXED: use fs.unlinkSync (native) instead of fs.removeSync
             fs.unlinkSync(flagFile);
         }
     }
@@ -345,9 +344,14 @@ async function handleMessages(sock, messageUpdate, printLog) {
 
         if (userMessage.startsWith('.')) console.log(`📝 Command: ${userMessage}`);
 
+        // ✅ FIX: Ensure messageCount.json exists before reading
+        const countFilePath = './data/messageCount.json';
+        if (!fs.existsSync(countFilePath)) {
+            fs.writeFileSync(countFilePath, JSON.stringify({ isPublic: true }, null, 2));
+        }
         let isPublic = true;
         try {
-            const data = JSON.parse(fs.readFileSync('./data/messageCount.json'));
+            const data = JSON.parse(fs.readFileSync(countFilePath, 'utf8'));
             if (typeof data.isPublic === 'boolean') isPublic = data.isPublic;
         } catch (e) {}
 
@@ -574,7 +578,7 @@ async function handleMessages(sock, messageUpdate, printLog) {
                     return;
                 }
                 let data;
-                try { data = JSON.parse(fs.readFileSync('./data/messageCount.json')); } catch(e) {}
+                try { data = JSON.parse(fs.readFileSync(countFilePath)); } catch(e) { data = { isPublic: true }; }
                 const action = userMessage.split(' ')[1]?.toLowerCase();
                 if (!action) {
                     const currentMode = data?.isPublic ? 'public' : 'private';
@@ -583,7 +587,7 @@ async function handleMessages(sock, messageUpdate, printLog) {
                 }
                 if (action !== 'public' && action !== 'private') return;
                 data.isPublic = action === 'public';
-                fs.writeFileSync('./data/messageCount.json', JSON.stringify(data, null, 2));
+                fs.writeFileSync(countFilePath, JSON.stringify(data, null, 2));
                 await sock.sendMessage(chatId, { text: `Mode set to ${action}` });
                 break;
             }
