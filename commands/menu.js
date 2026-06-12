@@ -29,10 +29,8 @@ const getGreeting = () => {
 
 const getMentionNumber = (jid) => jid.split('@')[0];
 
-const MENU_IMAGE_URL = 'https://files.catbox.moe/uii8bi.jpg';
-
-// --------------------- Slideshow image URLs (your list) ---------------------
-const SLIDESHOW_IMAGES = [
+// Your 9 images (exactly in the order you gave)
+const MENU_IMAGES = [
     'https://files.catbox.moe/uii8bi.jpg',
     'https://files.catbox.moe/69csjf.jpg',
     'https://files.catbox.moe/69csjf.jpg',  // duplicate as per your list
@@ -44,23 +42,11 @@ const SLIDESHOW_IMAGES = [
     'https://files.catbox.moe/gom02i.jpg'
 ];
 
-// --------------------- Sleep helper (for delays) ---------------------
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+// Store per‑user which image index they are on
+const userImageIndex = new Map(); // userId -> index (0..8)
 
-// --------------------- Send slideshow images one by one ---------------------
-async function sendImageSlideshow(sock, chatId, quotedMsg) {
-    for (let i = 0; i < SLIDESHOW_IMAGES.length; i++) {
-        try {
-            await sock.sendMessage(chatId, {
-                image: { url: SLIDESHOW_IMAGES[i] },
-                caption: i === 0 ? '🎬 *Transition effect*' : undefined
-            }, { quoted: quotedMsg });
-            await sleep(500); // 0.5 second between images – adjust as you like
-        } catch (err) {
-            console.error(`Slideshow image ${i+1} failed:`, err.message);
-        }
-    }
-}
+// --------------------- Sleep helper ---------------------
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // --------------------- Rich main menu text (mini‑menus + bot info + owner) ---------------------
 function getRichMainMenuText(pushname, mention, ping, ramBar, ramPercent, runtime, version, totalCommands) {
@@ -96,7 +82,7 @@ function getRichMainMenuText(pushname, mention, ping, ramBar, ramPercent, runtim
 ┃ 🧠 Premium AI Assistant (GPT‑4)
 ┃ 🌑 Dark Futuristic UI
 ┃ 🎵 MP3 audio & voice tools
-┃ 📸 Image slideshow transition
+┃ 📸 Cycling menu images (each .menu gives a new image)
 ┃
 ╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━⬣
 
@@ -107,8 +93,8 @@ function getRichMainMenuText(pushname, mention, ping, ramBar, ramPercent, runtim
 
 // --------------------- Send MP3 audio (normal audio, not voice note) ---------------------
 async function sendMp3Audio(sock, chatId, quotedMsg) {
-    // You can replace this URL with your own MP3 file
-    const audioUrl = 'https://files.catbox.moe/your-audio.mp3';  // <-- CHANGE THIS TO YOUR MP3 URL
+    // ⚠️ REPLACE THIS URL WITH YOUR ACTUAL MP3 FILE
+    const audioUrl = 'https://files.catbox.moe/your-audio.mp3';
     try {
         await sock.sendMessage(chatId, {
             audio: { url: audioUrl },
@@ -144,68 +130,30 @@ const menuHandler = async (sock, chatId, m) => {
     const totalCommands = 210;
     const mention = getMentionNumber(senderId);
 
-    const caption = `
-╭━━〔 *⚡ BIGMANJ BOT V3 ⚡* 〕━━⬣
-┃ ${getGreeting()} @${mention}
-┃ 👤 *User* : ${pushname}
-┃ ⚡ *Status* : ${isOwner ? "👑 OWNER" : "🤖 USER"}
-┃ 🚀 *Ping* : ${ping}ms
-┃ 💾 *RAM* : ${ramBar} ${ramPercent}%
-┃ ⏱ *Runtime* : ${runtime}
-┃ 🤖 *Bot Version* : ${version}
-┃ 📚 *Commands* : ${totalCommands}
-┃ 📡 *Library* : Baileys
-┃ 👑 *Owner* : bigmanj tech
-╰━━━━━━━━━━━━━━━━━━━━━━━━━━⬣
+    // ---------- Get the current image index for this user ----------
+    let currentIndex = userImageIndex.get(senderId) || 0;
+    const currentImageUrl = MENU_IMAGES[currentIndex];
+    
+    // Calculate next index for next .menu
+    const nextIndex = (currentIndex + 1) % MENU_IMAGES.length;
+    userImageIndex.set(senderId, nextIndex);
 
-🔐 *Russian Cyber Security Mode* – активен
-✨ *Premium AI Assistant* – готов
-🌑 *Dark Futuristic UI* – загружен
-
-*Tap the button below for Owner Menu*
-    `.trim();
-
-    // 1️⃣ Your existing status image + caption
+    // ---------- 1. Send the cycling image (no extra caption, but you can add one) ----------
+    // Optional: add a tiny caption like "Menu image #X"
     try {
         await sock.sendMessage(chatId, {
-            image: { url: MENU_IMAGE_URL },
-            caption: caption,
-            mentions: [senderId]
+            image: { url: currentImageUrl },
+            caption: `🎴 *Menu image ${currentIndex + 1}/${MENU_IMAGES.length}*`
         }, { quoted: m });
     } catch (err) {
-        console.error('Image send failed:', err.message);
-        await sock.sendMessage(chatId, { text: caption, mentions: [senderId] }, { quoted: m });
+        console.error('Cycling image send failed:', err.message);
     }
 
-    // 2️⃣ Your existing button (owner menu)
-    const buttonMessage = {
-        text: '🔽 *Mini Menu*',
-        footer: 'BIGMANj BOT V3 — bigmanj tech ™',
-        buttons: [
-            {
-                buttonId: 'owner_menu',
-                buttonText: { displayText: '👑 Owner Menu' },
-                type: 1
-            }
-        ],
-        headerType: 1,
-        viewOnce: false
-    };
-    try {
-        await sock.sendMessage(chatId, buttonMessage, { quoted: m });
-    } catch (err) {
-        console.error('Button send failed:', err.message);
-        await sock.sendMessage(chatId, { text: '🔽 Owner Menu: type `.owner`', mentions: [senderId] }, { quoted: m });
-    }
-
-    // 3️⃣ Send the rich text main menu (lists mini‑menus, bot info, owner, features)
+    // ---------- 2. Send the rich text menu (mini‑menus, bot info, owner, features) ----------
     const richMenuText = getRichMainMenuText(pushname, mention, ping, ramBar, ramPercent, runtime, version, totalCommands);
     await sock.sendMessage(chatId, { text: richMenuText, mentions: [senderId] }, { quoted: m });
 
-    // 4️⃣ Send image slideshow (transition effect) – runs one full cycle
-    await sendImageSlideshow(sock, chatId, m);
-
-    // 5️⃣ After 0.1 seconds, send MP3 audio (normal audio, not voice recording)
+    // ---------- 3. Wait 0.1 second, then send MP3 audio ----------
     await sleep(100);
     await sendMp3Audio(sock, chatId, m);
 };
