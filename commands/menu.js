@@ -51,7 +51,6 @@ async function getRandomImageBuffer() {
     currentImageIndex++;
     try {
         const res = await axios.get(url, { responseType: 'arraybuffer', timeout: 15000 });
-        // Resize for better display (optional)
         const resized = await sharp(res.data).resize(800, 600, { fit: 'inside' }).jpeg({ quality: 85 }).toBuffer();
         return resized;
     } catch (err) {
@@ -118,7 +117,7 @@ const menuHandler = async (sock, chatId, m) => {
 ✨ *Premium AI Assistant* – готов
 🌑 *Dark Futuristic UI* – загружен
 
-*Используйте кнопки ниже для навигации*
+*Tap a button below:*
     `.trim();
 
     // 1. Send the image with caption
@@ -130,23 +129,31 @@ const menuHandler = async (sock, chatId, m) => {
             mentions: [senderId]
         }, { quoted: m });
     } else {
-        // Fallback: send only text
         await sock.sendMessage(chatId, { text: caption, mentions: [senderId] }, { quoted: m });
     }
 
-    // 2. Send buttons (separate message) – works in both private and groups
-    const buttonMessage = {
-        text: "📱 *Navigation*",
-        footer: "© BIGMANJ BOT V3 — by bigmanj tech ™",
-        buttons: [
-            { buttonId: ".menu-all", buttonText: { displayText: "📚 All Menu" }, type: 1 },
-            { buttonId: ".menu-owner", buttonText: { displayText: "👑 Owner Menu" }, type: 1 }
-        ],
-        viewOnce: true
-    };
-    await sock.sendMessage(chatId, buttonMessage, { quoted: m });
+    // 2. Send buttons (using the standard Baileys buttons format)
+    //    If your version doesn't support buttons, it will silently fail – but we'll also send a text fallback.
+    try {
+        await sock.sendMessage(chatId, {
+            text: "📌 *Quick navigation*",
+            footer: "© BIGMANJ BOT V3 — by bigmanj tech ™",
+            buttons: [
+                { buttonId: ".menu-all", buttonText: { displayText: "📚 All Menu" }, type: 1 },
+                { buttonId: ".menu-owner", buttonText: { displayText: "👑 Owner Menu" }, type: 1 }
+            ],
+            viewOnce: true
+        });
+    } catch (err) {
+        console.warn("Buttons not supported, sending text fallback.");
+        // Fallback: send clickable command links
+        await sock.sendMessage(chatId, {
+            text: "📚 *All Menu* – type `.menu-all`\n👑 *Owner Menu* – type `.menu-owner`",
+            mentions: [senderId]
+        }, { quoted: m });
+    }
 
-    // 3. Send audio (regular MP3, not voice note)
+    // 3. Send audio (regular MP3)
     const audioBuffer = await getAudioBuffer();
     if (audioBuffer) {
         await sock.sendMessage(chatId, {
