@@ -1,78 +1,215 @@
-case "menu": {
-    await reaction(m.chat, "🚀")
-    
-    const totalMem = os.totalmem()
-    const freeMem = os.freemem()
-    const usedMem = totalMem - freeMem
-    const ramPercent = Math.round((usedMem / totalMem) * 100)
-    const ramBar = "█".repeat(Math.round(ramPercent / 10)) + "░".repeat(10 - Math.round(ramPercent / 10))
-    let timestamp = speed()
-    let latensi = speed() - timestamp
+const moment = require('moment-timezone');
+const axios = require('axios');
+const sharp = require('sharp');
+const fs = require('fs');
+const path = require('path');
 
-    // Use your existing random image from menuImages array
-    const randomImage = getRandomImage()
+// ----------------------------- Helper functions -----------------------------
+const getMessageText = (m) => {
+    if (m.message?.conversation) return m.message.conversation;
+    if (m.message?.extendedTextMessage?.text) return m.message.extendedTextMessage.text;
+    return '';
+};
 
-    // Clean, modern menu caption (no ugly boxes, no broken characters)
-    const menuCaption = 
-`⚠️ *ДОСТУП РАЗРЕШЁН* ⚠️
-*BIGMANJ BOT V3*
-Скорость выше предела. Интеллект без границ. Мощь нового поколения.
-*СТАТУС:* АКТИВЕН   *РЕЖИМ:* ЭЛИТА
+const formatUptime = (seconds) => {
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+    if (hours > 0) return `${hours}h ${minutes}m ${secs}s`;
+    if (minutes > 0) return `${minutes}m ${secs}s`;
+    return `${secs}s`;
+};
 
-${getGreeting()} @${pushname}
+const getGreeting = () => {
+    const hour = moment().tz('Africa/Dar_es_Salaam').hour();
+    if (hour >= 5 && hour < 12) return '🌅 Доброе утро';
+    if (hour >= 12 && hour < 18) return '🌤️ Добрый день';
+    return '🌙 Добрый вечер';
+};
 
-📌 *User Info*
-• Status: ${isOwner ? "Owner" : isSeller ? "Seller" : "User"}
-• Name: @${pushname}
-• Prefix: .
+const getMentionNumber = (jid) => jid.split('@')[0];
 
-📌 *Bot Info*
-• Speed: ${latensi.toFixed(4)} ms
-• Uptime: ${runtime(process.uptime())}
-• Commands: 200+
-• Ram: [${ramBar}] ${ramPercent}%
-• Date: ${new Date().toLocaleString()}
+// ----------------------------- Image & audio URLs -----------------------------
+const MENU_IMAGES = [
+    'https://files.catbox.moe/rt3wya.jpg',
+    'https://files.catbox.moe/69csjf.jpg',
+    'https://files.catbox.moe/wz28nv.jpg',
+    'https://files.catbox.moe/07brl4.jpg',
+    'https://files.catbox.moe/uii8bi.jpg',
+    'https://files.catbox.moe/dhl8dp.jpg',
+    'https://files.catbox.moe/n6adzs.jpg',
+    'https://files.catbox.moe/gom02i.jpg'
+];
+const AUDIO_URL = 'https://www.learningcontainer.com/wp-content/uploads/2020/02/Kalimba.mp3';
 
-📌 *Sub‑menus*
-• .menu-ai-chat
-• .menu-ai-generator
-• .menu-ai-misc
-• .menu-owner
-• .menu-group
-• .menu-search
-• .menu-stalker
-• .menu-info
-• .menu-tool
-• .menu-download
-• .menu-anime
-• .menu-maker
-• .menu-converter
-• .menu-qur'an
-• .menu-bug
-• .menu-all
+let currentImageIndex = 0;
+let cachedAudio = null;
 
-~bigmanj tech~
-© bigmanj tech ™
-~*BIGMANJ BOT V3*~ by ~*© bigmanj tech ™ with ♥︎*~`
-
-    // Send the button message with image and caption
-    await sendButtonV2(m, client, fquoted, {
-        title: "bigmanj biggest",
-        subtitle: "BIGMANJ bot by bigmanj tech ™",
-        imageUrl: randomImage,
-        body: menuCaption,
-        footer: "© BIGMANJ bot v8.0.3 — by bigmanj tech ™",
-        buttons: [
-            { text: "BIG Store", id: ".storemenu" },
-            { text: "Team Support", id: ".teamsupport" }
-        ]
-    })
-
-    // Send the audio as a regular MP3 (not voice note)
-    await client.sendMessage(m.chat, {
-        audio: { url: menuMusic },
-        mimetype: "audio/mpeg",
-        ptt: false   // regular playable audio, not voice note
-    }, { quoted: fquoted.doc })
+async function getRandomImageBuffer() {
+    const url = MENU_IMAGES[currentImageIndex % MENU_IMAGES.length];
+    currentImageIndex++;
+    try {
+        const res = await axios.get(url, { responseType: 'arraybuffer', timeout: 15000 });
+        // Resize to 300x300 (optimal for locationMessage thumbnail)
+        const resized = await sharp(res.data)
+            .resize(300, 300, { fit: 'cover' })
+            .jpeg({ quality: 80 })
+            .toBuffer();
+        return resized;
+    } catch (err) {
+        console.error('Image error:', err.message);
+        return null;
+    }
 }
-break
+
+async function getAudioBuffer() {
+    if (cachedAudio) return cachedAudio;
+    try {
+        const res = await axios.get(AUDIO_URL, { responseType: 'arraybuffer', timeout: 30000 });
+        cachedAudio = Buffer.from(res.data);
+        console.log('✅ Audio loaded');
+        return cachedAudio;
+    } catch (err) {
+        console.error('Audio error:', err.message);
+        return null;
+    }
+}
+
+// ----------------------------- Premium Button V3 -----------------------------
+async function sendButtonV3(sock, chatId, options) {
+    const { title, subtitle, body, footer, buttons, thumbnailBuffer, quotedMsg } = options;
+
+    // Build the interactive buttons (for WhatsApp native buttons)
+    const buttonRows = buttons.map(btn => ({
+        buttonId: btn.id,
+        buttonText: { displayText: btn.text },
+        type: 1
+    }));
+
+    // Generate the locationMessage wrapper (the large card)
+    const msg = generateWAMessageFromContent(chatId, {
+        buttonsMessage: {
+            contentText: body,
+            footerText: footer,
+            headerType: 6, // LOCATION
+            locationMessage: {
+                degreesLatitude: 0,
+                degreesLongitude: 0,
+                name: title,
+                address: subtitle,
+                jpegThumbnail: thumbnailBuffer
+            },
+            viewOnce: true,
+            contextInfo: {
+                quotedMessage: quotedMsg?.message,
+                participant: quotedMsg?.key?.participant,
+                remoteJid: quotedMsg?.key?.remoteJid,
+                forwardingScore: 999,
+                isForwarded: true,
+                forwardedNewsletterMessageInfo: {
+                    newsletterJid: "120363419090044864@newsletter",
+                    newsletterName: "BIGMANJ BOT V3"
+                },
+                externalAdReply: {
+                    title: "⚡ BIGMANJ BOT V3 ⚡",
+                    body: "© bigmanj tech ™ with ♥︎",
+                    thumbnailUrl: "https://files.catbox.moe/uii8bi.jpg",
+                    sourceUrl: "https://whatsapp.com/channel/0029Vb6B9xFCxoAseuG1g610",
+                    mediaType: 1,
+                    renderLargerThumbnail: true
+                }
+            },
+            buttons: buttonRows
+        }
+    }, { userJid: sock.user.id });
+
+    await sock.relayMessage(chatId, msg.message, { messageId: msg.key.id });
+}
+
+// ----------------------------- Menu Handler -----------------------------
+const menuHandler = async (sock, chatId, m) => {
+    const text = getMessageText(m).trim().toLowerCase();
+    if (text !== '.menu') return;
+
+    const senderId = m.key.participant || m.key.remoteJid;
+    const pushname = m.pushName || "User";
+    const isOwner = (senderId.split('@')[0] === "255777580820"); // adjust as needed
+    const status = isOwner ? "👑 OWNER" : "🤖 USER";
+    const start = Date.now();
+    await sock.sendMessage(chatId, { react: { text: '📌', key: m.key } });
+    const ping = Date.now() - start;
+
+    // System stats
+    const totalMem = require('os').totalmem();
+    const freeMem = require('os').freemem();
+    const usedMem = totalMem - freeMem;
+    const ramPercent = Math.round((usedMem / totalMem) * 100);
+    const ramBar = "█".repeat(Math.round(ramPercent / 10)) + "░".repeat(10 - Math.round(ramPercent / 10));
+    const runtime = formatUptime(process.uptime());
+    const version = "3.0.0";
+    const totalCommands = 210;
+    const library = "Baileys";
+    const ownerName = "bigmanj tech";
+
+    // Build the menu caption (Unicode box + Russian/English cyberpunk style)
+    const greeting = getGreeting();
+    const mention = getMentionNumber(senderId);
+    const caption = `
+╭━━〔 *⚡ BIGMANJ BOT V3 ⚡* 〕━━⬣
+┃ ${greeting} @${mention}
+┃ 👤 *User* : ${pushname}
+┃ ⚡ *Status* : ${status}
+┃ 🚀 *Ping* : ${ping}ms
+┃ 💾 *RAM* : ${ramBar} ${ramPercent}%
+┃ ⏱ *Runtime* : ${runtime}
+┃ 🤖 *Bot Version* : ${version}
+┃ 📚 *Commands* : ${totalCommands}
+┃ 📡 *Library* : ${library}
+┃ 👑 *Owner* : ${ownerName}
+╰━━━━━━━━━━━━━━━━━━━━━━━━━━⬣
+
+🔐 *Russian Cyber Security Mode* – активен
+✨ *Premium AI Assistant* – готов
+🌑 *Dark Futuristic UI* – загружен
+
+*Используйте кнопки ниже для навигации*
+    `.trim();
+
+    // Get a random high-quality thumbnail
+    const thumbnail = await getRandomImageBuffer();
+    if (!thumbnail) {
+        // Fallback: send as plain text
+        await sock.sendMessage(chatId, { text: caption, mentions: [senderId] }, { quoted: m });
+        await sock.sendMessage(chatId, { audio: { url: AUDIO_URL }, mimetype: 'audio/mpeg', ptt: false }, { quoted: m });
+        return;
+    }
+
+    // Send the premium button menu
+    await sendButtonV3(sock, chatId, {
+        title: "⚡ BIGMANJ BOT V3 ⚡",
+        subtitle: "© bigmanj tech ™ with ♥︎",
+        body: caption,
+        footer: "╰━━━━━━━━━━━━━━━━━━━━━━━━━━⬣\n© BIGMANJ BOT V3 — by bigmanj tech ™",
+        buttons: [
+            { text: "📚 All Menu", id: ".menu-all" },
+            { text: "👑 Owner Menu", id: ".menu-owner" }
+        ],
+        thumbnailBuffer: thumbnail,
+        quotedMsg: m
+    });
+
+    // Send the audio (optional – you can remove if you prefer only the button menu)
+    const audioBuffer = await getAudioBuffer();
+    if (audioBuffer) {
+        await sock.sendMessage(chatId, {
+            audio: audioBuffer,
+            mimetype: 'audio/mpeg',
+            ptt: false,
+            fileName: 'menu_audio.mp3'
+        }, { quoted: m });
+    }
+};
+
+module.exports = menuHandler;
