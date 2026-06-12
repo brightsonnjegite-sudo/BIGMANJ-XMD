@@ -92,7 +92,7 @@ async function updateCommand(sock, chatId, message, customUrl = null) {
             return;
         }
 
-        const part1 = `🚀 *BIGMANJ BOT V3 UPDATE START.......* 🚀\n_______________________________\n*$ sudo bot update 🔄*\n> *Fetching updates.......from BIGMANJ REPO 📡*\n> *Downloading... [███████████████] 100% ✅*\n> *Extracting... OK 📦*\n> *Copying files... 14/14 📋*\n> *Preserving data... Session, Stats, Users 🔐*`;
+        const part1 = `🚀 *BIGMANJ BOT V3 UPDATE START.......* 🚀\n_______________________________\n*$ sudo bot update 🔄*\n *Fetching updates.......from BIGMANJ REPO 📡*\n *Downloading... [███████████████] 100% ✅*\n *Extracting... OK 📦*\n *Copying files... 14/14 📋*\n *Preserving data... Session, Stats, Users 🔐*`;
         const sentMsg1 = await sock.sendMessage(chatId, { text: part1 });
         cycleReactions(sock, sentMsg1, ['🔄', '♻️'], 2000).catch(console.error);
 
