@@ -1,24 +1,36 @@
+const { exec } = require('child_process');
+const fs = require('fs-extra');
+const path = require('path');
+const axios = require('axios');
+const chalk = require('chalk');
+
+const REPO_URL = 'https://github.com/brightsonnjegite-sudo/BIGMANJ-XMD';
+const REPO_API_URL = 'https://api.github.com/repos/brightsonnjegite-sudo/BIGMANJ-XMD';
+
+async function cycleReactions(sock, messageKey, reactions, delayMs = 2000) {
+    for (const emoji of reactions) {
+        await sock.sendMessage(messageKey.remoteJid, { react: { text: emoji, key: messageKey } });
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+}
+
 async function updateCommand(sock, chatId, message, customUrl = null) {
     try {
-        // ✅ Fix: owner detection by number, not fromMe
         const senderId = message.key.participant || message.key.remoteJid;
         const senderNumber = senderId.split('@')[0];
-        const isOwner = (senderNumber === "255777580820"); // YOUR OWNER NUMBER
+        const isOwner = (senderNumber === "255777580820"); // replace with your owner number
 
         if (!isOwner) {
             await sock.sendMessage(chatId, { text: "❌ *Samahani, ni owner pekee anayeruhusiwa kutumia hii command!*" });
             return;
         }
 
-        // ✅ Add immediate reaction to show bot received the command
         await sock.sendMessage(chatId, { react: { text: '🔄', key: message.key } });
 
-        // Send first message (Part One)
         const part1 = `🚀 *BIGMANJ BOT V3 UPDATE START.......* 🚀\n_______________________________\n*$ sudo bot update 🔄*\n> *Fetching updates.......from BIGMANJ REPO 📡*\n> *Downloading... [███████████████] 100% ✅*\n> *Extracting... OK 📦*\n> *Copying files... 14/14 📋*\n> *Preserving data... Session, Stats, Users 🔐*`;
         const sentMsg1 = await sock.sendMessage(chatId, { text: part1 });
         cycleReactions(sock, sentMsg1, ['🔄', '♻️'], 2000).catch(console.error);
 
-        // Proceed with actual update (download, extract, copy...)
         const mainRepo = REPO_URL;
         let updateZipUrl;
         if (customUrl && customUrl.startsWith('http')) {
@@ -104,7 +116,6 @@ async function updateCommand(sock, chatId, message, customUrl = null) {
                     }
                 }
 
-                // Merge package.json scripts
                 const newPackagePath = path.join(rootFolder, 'package.json');
                 const currentPackagePath = path.join(process.cwd(), 'package.json');
                 if (fs.existsSync(newPackagePath)) {
@@ -118,7 +129,6 @@ async function updateCommand(sock, chatId, message, customUrl = null) {
 
                 fs.removeSync(tmpDir);
 
-                // Send second message (Part Two)
                 const part2 = `_______________________________\n✅ *Update successful.* 🎉\n\n*$ bot restart --in 5s ⏳*\n\n*🔄 Bot in progress...*`;
                 const sentMsg2 = await sock.sendMessage(chatId, { text: part2 });
                 cycleReactions(sock, sentMsg2, ['📡', '⌛', '⏳', '✅'], 2000).catch(console.error);
@@ -126,7 +136,6 @@ async function updateCommand(sock, chatId, message, customUrl = null) {
                 console.log(chalk.green.bold('✅ BIGMANJ BOT V3 UPDATE SUCCESSFUL!'));
                 console.log(chalk.yellow(`📁 ${copiedCount} files updated, ${skippedCount} files protected`));
 
-                // Create flag file for post-restart message
                 const flagFile = path.join(process.cwd(), 'data', 'update_just_done.flag');
                 fs.ensureDirSync(path.dirname(flagFile));
                 fs.writeFileSync(flagFile, JSON.stringify({
@@ -134,7 +143,6 @@ async function updateCommand(sock, chatId, message, customUrl = null) {
                     chatId: chatId
                 }));
 
-                // Restart bot after 5 seconds
                 setTimeout(() => {
                     console.log(chalk.yellow('🔄 Restarting BIGMANJ Bot...'));
                     process.exit(0);
@@ -152,3 +160,29 @@ async function updateCommand(sock, chatId, message, customUrl = null) {
         await sock.sendMessage(chatId, { text: `❌ *Update Imefeli:* ${err.message}\n\n• Repo iko private au haipatikani\n• Connection timeout\n• Hakuna unzip kwenye server\n\nJaribu tena baadaye.` }).catch(() => {});
     }
 }
+
+async function checkVersion(sock, chatId, message) {
+    try {
+        const senderId = message.key.participant || message.key.remoteJid;
+        const senderNumber = senderId.split('@')[0];
+        const isOwner = (senderNumber === "255777580820");
+        if (!isOwner) return;
+        const packageJson = require(path.join(process.cwd(), 'package.json'));
+        const currentVersion = packageJson.version || '3.0.0';
+        try {
+            const apiUrl = `${REPO_API_URL}/commits/main`;
+            const response = await axios.get(apiUrl, { timeout: 5000 });
+            const latestCommit = response.data;
+            const lastUpdate = new Date(latestCommit.commit.author.date).toLocaleString();
+            const versionMsg = `🤖 *BIGMANJ BOT V3*\n\n📌 *Current Version:* ${currentVersion}\n📦 *Repository:* BIGMANJ-XMD\n🕐 *Latest Update:* ${lastUpdate}\n📝 *Latest Commit:* ${latestCommit.commit.message.slice(0, 50)}...\n\n💡 *Commands:*\n├ .update - Update to latest version\n├ .update branch [name] - Update from specific branch\n├ .version - Check status\n└ .update [url] - Custom URL\n\n✅ *Bot iko running smoothly!* 🚀`;
+            await sock.sendMessage(chatId, { text: versionMsg });
+        } catch (err) {
+            await sock.sendMessage(chatId, { text: `🤖 *BIGMANJ BOT V3*\n📌 Version: ${currentVersion}\n⚠️ Unable to check remote updates` });
+        }
+    } catch (err) {
+        console.error("Version check error:", err);
+    }
+}
+
+// ✅ THIS IS THE CRITICAL EXPORT
+module.exports = { updateCommand, checkVersion };
