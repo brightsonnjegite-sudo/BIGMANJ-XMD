@@ -1,57 +1,17 @@
-const { exec } = require('child_process');
-const fs = require('fs-extra');
-const path = require('path');
-const axios = require('axios');
-const chalk = require('chalk');
-
-const REPO_URL = 'https://github.com/brightsonnjegite-sudo/BIGMANJ-XMD';
-const REPO_API_URL = 'https://api.github.com/repos/brightsonnjegite-sudo/BIGMANJ-XMD';
-
-// Helper function to change reaction with delay
-async function cycleReactions(sock, messageKey, reactions, delayMs = 2000) {
-    for (const emoji of reactions) {
-        await sock.sendMessage(messageKey.remoteJid, { react: { text: emoji, key: messageKey } });
-        await new Promise(resolve => setTimeout(resolve, delayMs));
-    }
-}
-
-/**
- * Send an image with an interactive "Copy" button that copies '.menu' to the clipboard.
- */
-async function sendImageWithCopyButton(sock, chatId, imageUrl) {
-    try {
-        const response = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 15000 });
-        const imageBuffer = Buffer.from(response.data);
-        const interactiveButtons = [
-            {
-                name: 'cta_copy',
-                buttonParamsJson: JSON.stringify({
-                    display_text: '📋 MENU',
-                    id: 'copy_menu_command',
-                    copy_code: '.menu'
-                })
-            }
-        ];
-        await sock.sendMessage(chatId, {
-            image: imageBuffer,
-            caption: '🌟 *BIGMANJ BOT V3 IMPROVED* 🌟\n *and ready 🚀*\n\n© bigmanj tech ™ with ♥︎ 🤖',
-            interactiveButtons: interactiveButtons
-        });
-        console.log(chalk.green('✅ Sent image with interactive copy button.'));
-    } catch (error) {
-        console.error(chalk.red('Failed to send image with button. Sending text fallback...'), error);
-        const fallbackMsg = '______________________________\n🌟 *BIGMANJ BOT V3 IMPROVED* 🌟\n          *and ready 🚀*\n\n*© bigmanj tech ™ with ♥︎ 🤖*\n\n📋 Copy this command: `.menu`';
-        await sock.sendMessage(chatId, { text: fallbackMsg });
-    }
-}
-
 async function updateCommand(sock, chatId, message, customUrl = null) {
     try {
-        const isOwner = message.key.fromMe;
+        // ✅ Fix: owner detection by number, not fromMe
+        const senderId = message.key.participant || message.key.remoteJid;
+        const senderNumber = senderId.split('@')[0];
+        const isOwner = (senderNumber === "255777580820"); // YOUR OWNER NUMBER
+
         if (!isOwner) {
             await sock.sendMessage(chatId, { text: "❌ *Samahani, ni owner pekee anayeruhusiwa kutumia hii command!*" });
             return;
         }
+
+        // ✅ Add immediate reaction to show bot received the command
+        await sock.sendMessage(chatId, { react: { text: '🔄', key: message.key } });
 
         // Send first message (Part One)
         const part1 = `🚀 *BIGMANJ BOT V3 UPDATE START.......* 🚀\n_______________________________\n*$ sudo bot update 🔄*\n> *Fetching updates.......from BIGMANJ REPO 📡*\n> *Downloading... [███████████████] 100% ✅*\n> *Extracting... OK 📦*\n> *Copying files... 14/14 📋*\n> *Preserving data... Session, Stats, Users 🔐*`;
@@ -79,8 +39,6 @@ async function updateCommand(sock, chatId, message, customUrl = null) {
         if (fs.existsSync(tmpDir)) fs.removeSync(tmpDir);
         fs.ensureDirSync(tmpDir);
 
-        await sock.sendMessage(chatId, { text: "*📥 Ina-download update kutoka Bigmanj Repo...*" });
-
         const response = await axios({
             method: 'get',
             url: updateZipUrl,
@@ -95,8 +53,6 @@ async function updateCommand(sock, chatId, message, customUrl = null) {
             writer.on('finish', resolve);
             writer.on('error', reject);
         });
-
-        await sock.sendMessage(chatId, { text: "*📦 Kuna-extract files mpya...*" });
 
         exec(`unzip -o ${zipPath} -d ${extractPath}`, async (err, stdout, stderr) => {
             if (err) {
@@ -128,8 +84,6 @@ async function updateCommand(sock, chatId, message, customUrl = null) {
                     'data/chatbot_memory.json', 'data/user_prefs.json', 'data/stats.json',
                     'data/custom_responses.json', 'data/reminders.json'
                 ];
-
-                await sock.sendMessage(chatId, { text: "*📋 Ina-copy files mpya (huku ikilinda data yako)...*" });
 
                 const files = fs.readdirSync(rootFolder);
                 let copiedCount = 0, skippedCount = 0;
@@ -198,26 +152,3 @@ async function updateCommand(sock, chatId, message, customUrl = null) {
         await sock.sendMessage(chatId, { text: `❌ *Update Imefeli:* ${err.message}\n\n• Repo iko private au haipatikani\n• Connection timeout\n• Hakuna unzip kwenye server\n\nJaribu tena baadaye.` }).catch(() => {});
     }
 }
-
-async function checkVersion(sock, chatId, message) {
-    try {
-        const isOwner = message.key.fromMe;
-        if (!isOwner) return;
-        const packageJson = require(path.join(process.cwd(), 'package.json'));
-        const currentVersion = packageJson.version || '3.0.0';
-        try {
-            const apiUrl = `${REPO_API_URL}/commits/main`;
-            const response = await axios.get(apiUrl, { timeout: 5000 });
-            const latestCommit = response.data;
-            const lastUpdate = new Date(latestCommit.commit.author.date).toLocaleString();
-            const versionMsg = `🤖 *BIGMANJ BOT V3*\n\n📌 *Current Version:* ${currentVersion}\n📦 *Repository:* BIGMANJ-XMD\n🕐 *Latest Update:* ${lastUpdate}\n📝 *Latest Commit:* ${latestCommit.commit.message.slice(0, 50)}...\n\n💡 *Commands:*\n├ .update - Update to latest version\n├ .update branch [name] - Update from specific branch\n├ .version - Check status\n└ .update [url] - Custom URL\n\n✅ *Bot iko running smoothly!* 🚀`;
-            await sock.sendMessage(chatId, { text: versionMsg });
-        } catch (err) {
-            await sock.sendMessage(chatId, { text: `🤖 *BIGMANJ BOT V3*\n📌 Version: ${currentVersion}\n⚠️ Unable to check remote updates` });
-        }
-    } catch (err) {
-        console.error("Version check error:", err);
-    }
-}
-
-module.exports = { updateCommand, checkVersion };
