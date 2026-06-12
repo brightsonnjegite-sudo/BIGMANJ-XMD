@@ -33,8 +33,8 @@ const OWNER_NAME = 'bigmanj tech';
 const OWNER_NUMBER = '255777580820';
 
 // ----------------------------------- Multimedia URLs -----------------------------------
-// Use a reliable MP3 URL (replace if needed)
 const AUDIO_URL = 'https://www.learningcontainer.com/wp-content/uploads/2020/02/Kalimba.mp3';
+const THUMBNAIL_URL = 'https://files.catbox.moe/uii8bi.jpg';   // Custom thumbnail for audio
 
 // Cyclic image URLs (8 images)
 const IMAGE_URLS = [
@@ -50,7 +50,9 @@ const IMAGE_URLS = [
 
 let currentImageIndex = 0;
 let cachedAudio = null;
+let cachedThumbnail = null;
 
+// ----------------------------------- Audio & thumbnail caching -----------------------------------
 async function getAudioBuffer() {
     if (cachedAudio) return cachedAudio;
     try {
@@ -64,27 +66,48 @@ async function getAudioBuffer() {
     }
 }
 
+async function getThumbnailBuffer() {
+    if (cachedThumbnail) return cachedThumbnail;
+    try {
+        const res = await axios.get(THUMBNAIL_URL, { responseType: 'arraybuffer', timeout: 30000 });
+        cachedThumbnail = Buffer.from(res.data);
+        console.log('✅ Thumbnail loaded, size:', cachedThumbnail.length);
+        return cachedThumbnail;
+    } catch (err) {
+        console.error('❌ Thumbnail error:', err.message);
+        return null;
+    }
+}
+
 async function sendAudio(sock, chatId, quotedMsg) {
-    const buffer = await getAudioBuffer();
-    if (!buffer) {
-        console.log('⚠️ No audio buffer – sending text fallback');
-        await sock.sendMessage(chatId, { text: "🔊 *Audio unavailable*\nPlease check the audio URL later." }, { quoted: quotedMsg });
+    const audioBuffer = await getAudioBuffer();
+    const thumbnailBuffer = await getThumbnailBuffer();
+
+    if (!audioBuffer) {
+        await sock.sendMessage(chatId, { text: "🔊 *Audio unavailable*" }, { quoted: quotedMsg });
         return;
     }
+
+    const messagePayload = {
+        audio: audioBuffer,
+        mimetype: 'audio/mpeg',
+        ptt: false,                // regular MP3, not voice note
+        fileName: 'menu_audio.mp3'
+    };
+    if (thumbnailBuffer) {
+        messagePayload.jpegThumbnail = thumbnailBuffer;
+    }
+
     try {
-        await sock.sendMessage(chatId, {
-            audio: buffer,
-            mimetype: 'audio/mpeg',
-            ptt: false,         // ← sends as regular MP3, not voice note
-            fileName: 'menu_audio.mp3'
-        }, { quoted: quotedMsg });
-        console.log('🎵 Audio sent successfully (regular MP3)');
+        await sock.sendMessage(chatId, messagePayload, { quoted: quotedMsg });
+        console.log('🎵 Audio sent with custom thumbnail');
     } catch (err) {
         console.error('❌ Audio send error:', err.message);
         await sock.sendMessage(chatId, { text: "❌ Failed to send audio." }, { quoted: quotedMsg });
     }
 }
 
+// ----------------------------------- Image menu (Russian description + English details) -----------------------------------
 async function sendImageMenu(sock, chatId, m, senderId, latency) {
     const imageUrl = IMAGE_URLS[currentImageIndex];
     currentImageIndex = (currentImageIndex + 1) % IMAGE_URLS.length;
@@ -142,6 +165,7 @@ async function sendImageMenu(sock, chatId, m, senderId, latency) {
     }
 }
 
+// ----------------------------------- Main handler -----------------------------------
 const menuHandler = async (sock, chatId, m) => {
     const text = getMessageText(m).trim().toLowerCase();
     if (text !== '.menu') return;
