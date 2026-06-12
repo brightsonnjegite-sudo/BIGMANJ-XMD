@@ -51,7 +51,7 @@ const IMAGE_URLS = [
 // Global counter for cycling images (resets after last)
 let currentImageIndex = 0;
 
-// ----------------------------------- Caching for video/voice (optional) -----------------------------------
+// Cache for video/audio buffers
 let cachedVideo = null;
 let cachedVoice = null;
 
@@ -81,6 +81,10 @@ async function getVoiceBuffer() {
     }
 }
 
+/**
+ * Sends a WhatsApp round video note (circular video).
+ * Uses the correct Baileys implementation without ptt:true.
+ */
 async function sendVideoNote(sock, chatId, quotedMsg) {
     const buffer = await getVideoBuffer();
     if (!buffer) {
@@ -91,10 +95,10 @@ async function sendVideoNote(sock, chatId, quotedMsg) {
         await sock.sendMessage(chatId, {
             video: buffer,
             mimetype: 'video/mp4',
-            ptt: true,
+            videoNote: true,      // Proper flag for round video notes
             fileLength: buffer.length
         }, { quoted: quotedMsg });
-        console.log('🎥 Video note sent successfully');
+        console.log('🎥 Round video note sent successfully');
     } catch (err) {
         console.error('❌ Video note send error:', err.message);
     }
@@ -110,7 +114,7 @@ async function sendVoiceNote(sock, chatId, quotedMsg) {
         await sock.sendMessage(chatId, {
             audio: buffer,
             mimetype: 'audio/mpeg',
-            ptt: true
+            ptt: true          // ptt: true is correct for voice notes
         }, { quoted: quotedMsg });
         console.log('🎤 Voice note sent successfully');
     } catch (err) {
@@ -185,7 +189,7 @@ const menuHandler = async (sock, chatId, m) => {
     await sock.sendMessage(chatId, { react: { text: '📌', key: m.key } });
     const latency = Date.now() - startTime;
 
-    // 1. Send video note
+    // 1. Send round video note (correctly implemented)
     await sendVideoNote(sock, chatId, m);
     // 2. Send voice note
     await sendVoiceNote(sock, chatId, m);
