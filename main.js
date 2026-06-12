@@ -121,7 +121,7 @@ const videoCommand = require('./commands/video');
 const sudoCommand = require('./commands/sudo');
 const stickercropCommand = require('./commands/stickercrop');
 const mickeyCommand = require('./commands/Mickey');
-const { updateCommand } = require('./commands/update');   // <-- FIXED: destructuring
+const { updateCommand } = require('./commands/update');   // ✅ FIXED: destructuring
 const checkUpdatesCommand = require('./commands/checkupdates');
 const { igsCommand } = require('./commands/igs');
 const { anticallCommand, readState: readAnticallState } = require('./commands/anticall');
@@ -245,7 +245,8 @@ async function handlePostUpdateMessage(sock) {
         } catch (err) {
             console.error('Failed to send post-update message:', err);
         } finally {
-            fs.removeSync(flagFile);
+            // ✅ FIXED: use fs.unlinkSync (native) instead of fs.removeSync
+            fs.unlinkSync(flagFile);
         }
     }
 }
