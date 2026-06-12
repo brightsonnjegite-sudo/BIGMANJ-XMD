@@ -4,20 +4,31 @@ const path = require('path');
 const axios = require('axios');
 const chalk = require('chalk');
 
-// Load owner number from settings.js
+// Load settings
 let settings = {};
 try {
     settings = require('./settings');
 } catch (e) {
-    console.log('⚠️ settings.js not found, using default owner number');
+    console.log('⚠️ settings.js not found');
 }
 const OWNER_NUMBER = (settings.ownerNumber || '255777580820').toString().replace(/\D/g, '');
-console.log(`✅ Owner number loaded: ${OWNER_NUMBER}`);
+console.log(`✅ Owner number from settings: ${OWNER_NUMBER}`);
 
-const REPO_URL = 'https://github.com/brightsonnjegite-sudo/BIGMANJ-XMD';
-const REPO_API_URL = 'https://api.github.com/repos/brightsonnjegite-sudo/BIGMANJ-XMD';
+// Helper function to extract phone number from any JID (handles @s.whatsapp.net, @lid, etc.)
+function extractPhoneNumber(jid) {
+    if (!jid) return null;
+    // Try to get digits from JID (if it contains a phone number)
+    // Format could be 255777580820@s.whatsapp.net or 123456789012345@lid
+    // Remove everything after '@'
+    let localPart = jid.split('@')[0];
+    // Check if localPart is all digits and starts with country code (1-4 digits)
+    if (/^\d+$/.test(localPart) && localPart.length >= 10) {
+        return localPart;
+    }
+    // If not, maybe the whole JID is needed? Return null for LID.
+    return null;
+}
 
-// Helper function to change reaction with delay
 async function cycleReactions(sock, messageKey, reactions, delayMs = 2000) {
     for (const emoji of reactions) {
         await sock.sendMessage(messageKey.remoteJid, { react: { text: emoji, key: messageKey } });
@@ -25,9 +36,6 @@ async function cycleReactions(sock, messageKey, reactions, delayMs = 2000) {
     }
 }
 
-/**
- * Send an image with an interactive "Copy" button that copies '.menu' to the clipboard.
- */
 async function sendImageWithCopyButton(sock, chatId, imageUrl) {
     try {
         const response = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 15000 });
@@ -57,21 +65,38 @@ async function sendImageWithCopyButton(sock, chatId, imageUrl) {
 
 async function updateCommand(sock, chatId, message, customUrl = null) {
     try {
-        // Owner check: get sender number
+        // Get sender JID
         const senderId = message.key.participant || message.key.remoteJid;
-        const senderNumber = senderId.split('@')[0];
-        if (senderNumber !== OWNER_NUMBER) {
+        const senderNumber = extractPhoneNumber(senderId);
+        
+        // DEBUG: log to console
+        console.log(chalk.yellow(`🔍 Sender JID: ${senderId}`));
+        console.log(chalk.yellow(`🔍 Extracted number: ${senderNumber}`));
+        console.log(chalk.yellow(`🔍 Owner number: ${OWNER_NUMBER}`));
+
+        // Owner check: compare extracted number OR exact JID if extraction fails (for LID)
+        let isOwner = false;
+        if (senderNumber && senderNumber === OWNER_NUMBER) {
+            isOwner = true;
+        } else if (senderId === `${OWNER_NUMBER}@s.whatsapp.net`) {
+            isOwner = true;
+        } else if (senderId === OWNER_NUMBER) {
+            isOwner = true;
+        }
+        
+        // Also allow the bot's own number (message.key.fromMe) as a fallback
+        if (message.key.fromMe) isOwner = true;
+
+        if (!isOwner) {
             await sock.sendMessage(chatId, { text: "❌ *Samahani, ni owner pekee anayeruhusiwa kutumia hii command!*" });
             return;
         }
 
-        // Send first message (Part One)
         const part1 = `🚀 *BIGMANJ BOT V3 UPDATE START.......* 🚀\n_______________________________\n*$ sudo bot update 🔄*\n> *Fetching updates.......from BIGMANJ REPO 📡*\n> *Downloading... [███████████████] 100% ✅*\n> *Extracting... OK 📦*\n> *Copying files... 14/14 📋*\n> *Preserving data... Session, Stats, Users 🔐*`;
         const sentMsg1 = await sock.sendMessage(chatId, { text: part1 });
         cycleReactions(sock, sentMsg1, ['🔄', '♻️'], 2000).catch(console.error);
 
-        // Proceed with actual update (download, extract, copy...)
-        const mainRepo = REPO_URL;
+        const mainRepo = 'https://github.com/brightsonnjegite-sudo/BIGMANJ-XMD';
         let updateZipUrl;
         if (customUrl && customUrl.startsWith('http')) {
             updateZipUrl = customUrl.trim();
@@ -156,7 +181,6 @@ async function updateCommand(sock, chatId, message, customUrl = null) {
                     }
                 }
 
-                // Merge package.json scripts
                 const newPackagePath = path.join(rootFolder, 'package.json');
                 const currentPackagePath = path.join(process.cwd(), 'package.json');
                 if (fs.existsSync(newPackagePath)) {
@@ -170,7 +194,6 @@ async function updateCommand(sock, chatId, message, customUrl = null) {
 
                 fs.removeSync(tmpDir);
 
-                // Send second message (Part Two)
                 const part2 = `_______________________________\n✅ *Update successful.* 🎉\n\n*$ bot restart --in 5s ⏳*\n\n*🔄 Bot in progress...*`;
                 const sentMsg2 = await sock.sendMessage(chatId, { text: part2 });
                 cycleReactions(sock, sentMsg2, ['📡', '⌛', '⏳', '✅'], 2000).catch(console.error);
@@ -178,7 +201,6 @@ async function updateCommand(sock, chatId, message, customUrl = null) {
                 console.log(chalk.green.bold('✅ BIGMANJ BOT V3 UPDATE SUCCESSFUL!'));
                 console.log(chalk.yellow(`📁 ${copiedCount} files updated, ${skippedCount} files protected`));
 
-                // Create flag file for post-restart message
                 const flagFile = path.join(process.cwd(), 'data', 'update_just_done.flag');
                 fs.ensureDirSync(path.dirname(flagFile));
                 fs.writeFileSync(flagFile, JSON.stringify({
@@ -186,7 +208,6 @@ async function updateCommand(sock, chatId, message, customUrl = null) {
                     chatId: chatId
                 }));
 
-                // Restart bot after 5 seconds
                 setTimeout(() => {
                     console.log(chalk.yellow('🔄 Restarting BIGMANJ Bot...'));
                     process.exit(0);
@@ -210,7 +231,7 @@ async function checkVersion(sock, chatId, message) {
         const packageJson = require(path.join(process.cwd(), 'package.json'));
         const currentVersion = packageJson.version || '3.0.0';
         try {
-            const apiUrl = `${REPO_API_URL}/commits/main`;
+            const apiUrl = 'https://api.github.com/repos/brightsonnjegite-sudo/BIGMANJ-XMD/commits/main';
             const response = await axios.get(apiUrl, { timeout: 5000 });
             const latestCommit = response.data;
             const lastUpdate = new Date(latestCommit.commit.author.date).toLocaleString();
