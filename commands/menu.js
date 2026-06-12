@@ -1,9 +1,7 @@
 const moment = require('moment-timezone');
 const axios = require('axios');
-const sharp = require('sharp');
 const os = require('os');
 
-// Helper functions
 const getMessageText = (m) => {
     if (m.message?.conversation) return m.message.conversation;
     if (m.message?.extendedTextMessage?.text) return m.message.extendedTextMessage.text;
@@ -30,41 +28,18 @@ const getGreeting = () => {
 
 const getMentionNumber = (jid) => jid.split('@')[0];
 
-// Image & audio URLs
-const MENU_IMAGES = [
-    'https://files.catbox.moe/rt3wya.jpg',
-    'https://files.catbox.moe/69csjf.jpg',
-    'https://files.catbox.moe/wz28nv.jpg',
-    'https://files.catbox.moe/07brl4.jpg',
-    'https://files.catbox.moe/uii8bi.jpg',
-    'https://files.catbox.moe/dhl8dp.jpg',
-    'https://files.catbox.moe/n6adzs.jpg',
-    'https://files.catbox.moe/gom02i.jpg'
-];
+// Picha – tumia URL moja thabiti (badilisha iwe yako)
+const MENU_IMAGE_URL = 'https://files.catbox.moe/uii8bi.jpg';
+// Sauti – URL yoyote ya mp3 inayofanya kazi
 const AUDIO_URL = 'https://www.learningcontainer.com/wp-content/uploads/2020/02/Kalimba.mp3';
 
-let currentImageIndex = 0;
 let cachedAudio = null;
-
-async function getRandomImageBuffer() {
-    const url = MENU_IMAGES[currentImageIndex % MENU_IMAGES.length];
-    currentImageIndex++;
-    try {
-        const res = await axios.get(url, { responseType: 'arraybuffer', timeout: 15000 });
-        const resized = await sharp(res.data).resize(800, 600, { fit: 'inside' }).jpeg({ quality: 85 }).toBuffer();
-        return resized;
-    } catch (err) {
-        console.error('Image error:', err.message);
-        return null;
-    }
-}
 
 async function getAudioBuffer() {
     if (cachedAudio) return cachedAudio;
     try {
         const res = await axios.get(AUDIO_URL, { responseType: 'arraybuffer', timeout: 30000 });
         cachedAudio = Buffer.from(res.data);
-        console.log('✅ Audio loaded');
         return cachedAudio;
     } catch (err) {
         console.error('Audio error:', err.message);
@@ -72,7 +47,6 @@ async function getAudioBuffer() {
     }
 }
 
-// Main menu handler
 const menuHandler = async (sock, chatId, m) => {
     const text = getMessageText(m).trim().toLowerCase();
     if (text !== '.menu') return;
@@ -85,7 +59,6 @@ const menuHandler = async (sock, chatId, m) => {
     await sock.sendMessage(chatId, { react: { text: '📌', key: m.key } });
     const ping = Date.now() - start;
 
-    // System stats
     const totalMem = os.totalmem();
     const freeMem = os.freemem();
     const usedMem = totalMem - freeMem;
@@ -96,9 +69,9 @@ const menuHandler = async (sock, chatId, m) => {
     const totalCommands = 210;
     const library = "Baileys";
     const ownerName = "bigmanj tech";
-
     const greeting = getGreeting();
     const mention = getMentionNumber(senderId);
+
     const caption = `
 ╭━━〔 *⚡ BIGMANJ BOT V3 ⚡* 〕━━⬣
 ┃ ${greeting} @${mention}
@@ -117,52 +90,27 @@ const menuHandler = async (sock, chatId, m) => {
 ✨ *Premium AI Assistant* – готов
 🌑 *Dark Futuristic UI* – загружен
 
-*Use the buttons below:* (if you don't see buttons, type the commands manually)
+*Используйте команды ниже для навигации*
     `.trim();
 
-    // 1. Send the image with caption
-    const imageBuffer = await getRandomImageBuffer();
-    if (imageBuffer) {
+    // 1. Tuma picha pamoja na caption
+    try {
         await sock.sendMessage(chatId, {
-            image: imageBuffer,
+            image: { url: MENU_IMAGE_URL },
             caption: caption,
             mentions: [senderId]
         }, { quoted: m });
-    } else {
+    } catch (err) {
+        console.error('Image send failed:', err.message);
+        // Fallback: tuma maandishi tu
         await sock.sendMessage(chatId, { text: caption, mentions: [senderId] }, { quoted: m });
     }
 
-    // 2. Send interactive buttons (modern format, works on most Baileys versions)
-    try {
-        await sock.sendMessage(chatId, {
-            text: "📌 *Quick navigation*",
-            footer: "© BIGMANJ BOT V3 — by bigmanj tech ™",
-            interactiveButtons: [
-                {
-                    name: "quick_reply",
-                    buttonParamsJson: JSON.stringify({
-                        display_text: "📚 All Menu",
-                        id: ".menu-all"
-                    })
-                },
-                {
-                    name: "quick_reply",
-                    buttonParamsJson: JSON.stringify({
-                        display_text: "👑 Owner Menu",
-                        id: ".menu-owner"
-                    })
-                }
-            ]
-        });
-    } catch (err) {
-        console.warn("Interactive buttons not supported, sending text fallback.");
-        await sock.sendMessage(chatId, {
-            text: "📚 *All Menu* – type `.menu-all`\n👑 *Owner Menu* – type `.menu-owner`\n\n© BIGMANJ BOT V3 — by bigmanj tech ™",
-            mentions: [senderId]
-        }, { quoted: m });
-    }
+    // 2. Tuma maandishi yenye amri (badala ya buttons) – hizi ndizo amri ambazo bot yako tayari inazijua
+    const navText = `📌 *Quick navigation*\n\n• *All Menu* – type \`.menu-all\`\n• *Owner Menu* – type \`.menu-owner\`\n\n© BIGMANJ BOT V3 — by bigmanj tech ™`;
+    await sock.sendMessage(chatId, { text: navText, mentions: [senderId] }, { quoted: m });
 
-    // 3. Send audio (regular MP3)
+    // 3. Tuma audio
     const audioBuffer = await getAudioBuffer();
     if (audioBuffer) {
         await sock.sendMessage(chatId, {
