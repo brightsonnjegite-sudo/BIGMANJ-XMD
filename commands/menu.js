@@ -29,7 +29,7 @@ const getGreeting = () => {
 const getMentionNumber = (jid) => jid.split('@')[0];
 
 const TOTAL_COMMANDS = 210;
-const OWNER_NAME = 'BIGMANj';
+const OWNER_NAME = 'bigmanj tech';
 const OWNER_NUMBER = '255777580820';
 
 // ----------------------------------- Multimedia URLs -----------------------------------
