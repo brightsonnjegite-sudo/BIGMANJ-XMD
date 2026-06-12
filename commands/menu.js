@@ -2,9 +2,8 @@ const moment = require('moment-timezone');
 const axios = require('axios');
 const sharp = require('sharp');
 const os = require('os');
-const { generateWAMessageFromContent, proto } = require('@whiskeysockets/baileys');
 
-// ---------- Helper functions ----------
+// Helper functions
 const getMessageText = (m) => {
     if (m.message?.conversation) return m.message.conversation;
     if (m.message?.extendedTextMessage?.text) return m.message.extendedTextMessage.text;
@@ -31,7 +30,7 @@ const getGreeting = () => {
 
 const getMentionNumber = (jid) => jid.split('@')[0];
 
-// ---------- Image & audio URLs ----------
+// Image & audio URLs
 const MENU_IMAGES = [
     'https://files.catbox.moe/rt3wya.jpg',
     'https://files.catbox.moe/69csjf.jpg',
@@ -52,21 +51,12 @@ async function getRandomImageBuffer() {
     currentImageIndex++;
     try {
         const res = await axios.get(url, { responseType: 'arraybuffer', timeout: 15000 });
-        // Resize to 300x300 for optimal display
-        const resized = await sharp(res.data)
-            .resize(300, 300, { fit: 'cover' })
-            .jpeg({ quality: 80 })
-            .toBuffer();
+        // Resize for better display (optional)
+        const resized = await sharp(res.data).resize(800, 600, { fit: 'inside' }).jpeg({ quality: 85 }).toBuffer();
         return resized;
     } catch (err) {
         console.error('Image error:', err.message);
-        // Fallback: return original buffer without resizing
-        try {
-            const res2 = await axios.get(url, { responseType: 'arraybuffer', timeout: 15000 });
-            return Buffer.from(res2.data);
-        } catch {
-            return null;
-        }
+        return null;
     }
 }
 
@@ -83,63 +73,14 @@ async function getAudioBuffer() {
     }
 }
 
-// ---------- Premium Button V3 ----------
-async function sendButtonV3(sock, chatId, options) {
-    const { title, subtitle, body, footer, buttons, thumbnailBuffer, quotedMsg } = options;
-
-    const buttonRows = buttons.map(btn => ({
-        buttonId: btn.id,
-        buttonText: { displayText: btn.text },
-        type: 1
-    }));
-
-    const msg = generateWAMessageFromContent(chatId, {
-        buttonsMessage: {
-            contentText: body,
-            footerText: footer,
-            headerType: 6,  // location message header (large card)
-            locationMessage: {
-                degreesLatitude: 0,
-                degreesLongitude: 0,
-                name: title,
-                address: subtitle,
-                jpegThumbnail: thumbnailBuffer
-            },
-            viewOnce: true,
-            contextInfo: {
-                quotedMessage: quotedMsg?.message,
-                participant: quotedMsg?.key?.participant,
-                remoteJid: quotedMsg?.key?.remoteJid,
-                forwardingScore: 999,
-                isForwarded: true,
-                forwardedNewsletterMessageInfo: {
-                    newsletterJid: "120363419090044864@newsletter",
-                    newsletterName: "BIGMANJ BOT V3"
-                },
-                externalAdReply: {
-                    title: "⚡ BIGMANJ BOT V3 ⚡",
-                    body: "© bigmanj tech ™ with ♥︎",
-                    thumbnailUrl: "https://files.catbox.moe/uii8bi.jpg",
-                    sourceUrl: "https://whatsapp.com/channel/0029Vb6B9xFCxoAseuG1g610",
-                    mediaType: 1,
-                    renderLargerThumbnail: true
-                }
-            },
-            buttons: buttonRows
-        }
-    }, { userJid: sock.user.id });
-
-    await sock.relayMessage(chatId, msg.message, { messageId: msg.key.id });
-}
-
-// ---------- Main menu handler ----------
+// Main menu handler
 const menuHandler = async (sock, chatId, m) => {
     const text = getMessageText(m).trim().toLowerCase();
     if (text !== '.menu') return;
 
     const senderId = m.key.participant || m.key.remoteJid;
     const pushname = m.pushName || "User";
-    const isOwner = (senderId.split('@')[0] === "255777580820"); // adjust owner number as needed
+    const isOwner = (senderId.split('@')[0] === "255777580820");
     const status = isOwner ? "👑 OWNER" : "🤖 USER";
     const start = Date.now();
     await sock.sendMessage(chatId, { react: { text: '📌', key: m.key } });
@@ -180,35 +121,32 @@ const menuHandler = async (sock, chatId, m) => {
 *Используйте кнопки ниже для навигации*
     `.trim();
 
-    const thumbnail = await getRandomImageBuffer();
-    if (!thumbnail) {
-        // Fallback: send plain text menu
+    // 1. Send the image with caption
+    const imageBuffer = await getRandomImageBuffer();
+    if (imageBuffer) {
+        await sock.sendMessage(chatId, {
+            image: imageBuffer,
+            caption: caption,
+            mentions: [senderId]
+        }, { quoted: m });
+    } else {
+        // Fallback: send only text
         await sock.sendMessage(chatId, { text: caption, mentions: [senderId] }, { quoted: m });
-        const audioBuffer = await getAudioBuffer();
-        if (audioBuffer) {
-            await sock.sendMessage(chatId, {
-                audio: audioBuffer,
-                mimetype: 'audio/mpeg',
-                ptt: false,
-                fileName: 'menu_audio.mp3'
-            }, { quoted: m });
-        }
-        return;
     }
 
-    await sendButtonV3(sock, chatId, {
-        title: "⚡ BIGMANJ BOT V3 ⚡",
-        subtitle: "© bigmanj tech ™ with ♥︎",
-        body: caption,
-        footer: "╰━━━━━━━━━━━━━━━━━━━━━━━━━━⬣\n© BIGMANJ BOT V3 — by bigmanj tech ™",
+    // 2. Send buttons (separate message) – works in both private and groups
+    const buttonMessage = {
+        text: "📱 *Navigation*",
+        footer: "© BIGMANJ BOT V3 — by bigmanj tech ™",
         buttons: [
-            { text: "📚 All Menu", id: ".menu-all" },
-            { text: "👑 Owner Menu", id: ".menu-owner" }
+            { buttonId: ".menu-all", buttonText: { displayText: "📚 All Menu" }, type: 1 },
+            { buttonId: ".menu-owner", buttonText: { displayText: "👑 Owner Menu" }, type: 1 }
         ],
-        thumbnailBuffer: thumbnail,
-        quotedMsg: m
-    });
+        viewOnce: true
+    };
+    await sock.sendMessage(chatId, buttonMessage, { quoted: m });
 
+    // 3. Send audio (regular MP3, not voice note)
     const audioBuffer = await getAudioBuffer();
     if (audioBuffer) {
         await sock.sendMessage(chatId, {
