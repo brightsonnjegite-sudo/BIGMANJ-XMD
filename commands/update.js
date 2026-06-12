@@ -3,9 +3,22 @@ const fs = require('fs-extra');
 const path = require('path');
 const axios = require('axios');
 const chalk = require('chalk');
+const settings = require('./settings'); // Import settings
 
 const REPO_URL = 'https://github.com/brightsonnjegite-sudo/BIGMANJ-XMD';
 const REPO_API_URL = 'https://api.github.com/repos/brightsonnjegite-sudo/BIGMANJ-XMD';
+
+// Helper: get owner number from settings or fallback to hardcoded
+function getOwnerNumber() {
+    // Try to get from settings (global.owner or settings.owner or module.exports)
+    const ownerFromSettings = global.owner || settings.owner || (settings.default?.owner);
+    if (ownerFromSettings && typeof ownerFromSettings === 'string') {
+        // Remove any non-digit characters if present (e.g., +, spaces)
+        return ownerFromSettings.replace(/\D/g, '');
+    }
+    // Fallback hardcoded
+    return '255777580820';
+}
 
 async function cycleReactions(sock, messageKey, reactions, delayMs = 2000) {
     for (const emoji of reactions) {
@@ -18,7 +31,8 @@ async function updateCommand(sock, chatId, message, customUrl = null) {
     try {
         const senderId = message.key.participant || message.key.remoteJid;
         const senderNumber = senderId.split('@')[0];
-        const isOwner = (senderNumber === "255777580820"); // replace with your owner number
+        const ownerNumber = getOwnerNumber();
+        const isOwner = (senderNumber === ownerNumber);
 
         if (!isOwner) {
             await sock.sendMessage(chatId, { text: "❌ *Samahani, ni owner pekee anayeruhusiwa kutumia hii command!*" });
@@ -165,7 +179,8 @@ async function checkVersion(sock, chatId, message) {
     try {
         const senderId = message.key.participant || message.key.remoteJid;
         const senderNumber = senderId.split('@')[0];
-        const isOwner = (senderNumber === "255777580820");
+        const ownerNumber = getOwnerNumber();
+        const isOwner = (senderNumber === ownerNumber);
         if (!isOwner) return;
         const packageJson = require(path.join(process.cwd(), 'package.json'));
         const currentVersion = packageJson.version || '3.0.0';
@@ -184,5 +199,5 @@ async function checkVersion(sock, chatId, message) {
     }
 }
 
-// ✅ THIS IS THE CRITICAL EXPORT
+// Export both functions
 module.exports = { updateCommand, checkVersion };
