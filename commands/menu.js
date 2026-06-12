@@ -29,11 +29,10 @@ const getGreeting = () => {
 const getMentionNumber = (jid) => jid.split('@')[0];
 
 const TOTAL_COMMANDS = 210;
-const OWNER_NAME = 'BIGMANj';
+const OWNER_NAME = 'bigmanj tech ';
 const OWNER_NUMBER = '255777580820';
 
 // ----------------------------------- Multimedia URLs -----------------------------------
-const VIDEO_NOTE_URL = 'https://files.catbox.moe/gaxx2h.mp4';
 const VOICE_NOTE_URL = 'https://files.catbox.moe/sc2tlj.mp3';
 
 // Cyclic image URLs (8 images)
@@ -51,22 +50,8 @@ const IMAGE_URLS = [
 // Global counter for cycling images (resets after last)
 let currentImageIndex = 0;
 
-// Cache for video/audio buffers
-let cachedVideo = null;
+// Cache for voice buffer
 let cachedVoice = null;
-
-async function getVideoBuffer() {
-    if (cachedVideo) return cachedVideo;
-    try {
-        const res = await axios.get(VIDEO_NOTE_URL, { responseType: 'arraybuffer', timeout: 30000 });
-        cachedVideo = Buffer.from(res.data);
-        console.log('✅ Video note loaded, size:', cachedVideo.length);
-        return cachedVideo;
-    } catch (err) {
-        console.error('❌ Video note error:', err.message);
-        return null;
-    }
-}
 
 async function getVoiceBuffer() {
     if (cachedVoice) return cachedVoice;
@@ -81,29 +66,6 @@ async function getVoiceBuffer() {
     }
 }
 
-/**
- * Sends a WhatsApp round video note (circular video).
- * Uses the correct Baileys implementation without ptt:true.
- */
-async function sendVideoNote(sock, chatId, quotedMsg) {
-    const buffer = await getVideoBuffer();
-    if (!buffer) {
-        console.log('⚠️ No video buffer – skipping video note');
-        return;
-    }
-    try {
-        await sock.sendMessage(chatId, {
-            video: buffer,
-            mimetype: 'video/mp4',
-            videoNote: true,      // Proper flag for round video notes
-            fileLength: buffer.length
-        }, { quoted: quotedMsg });
-        console.log('🎥 Round video note sent successfully');
-    } catch (err) {
-        console.error('❌ Video note send error:', err.message);
-    }
-}
-
 async function sendVoiceNote(sock, chatId, quotedMsg) {
     const buffer = await getVoiceBuffer();
     if (!buffer) {
@@ -114,7 +76,7 @@ async function sendVoiceNote(sock, chatId, quotedMsg) {
         await sock.sendMessage(chatId, {
             audio: buffer,
             mimetype: 'audio/mpeg',
-            ptt: true          // ptt: true is correct for voice notes
+            ptt: true          // sends as voice note
         }, { quoted: quotedMsg });
         console.log('🎤 Voice note sent successfully');
     } catch (err) {
@@ -122,7 +84,7 @@ async function sendVoiceNote(sock, chatId, quotedMsg) {
     }
 }
 
-// ----------------------------------- Cyclic image + text menu -----------------------------------
+// ----------------------------------- Shortened menu text (shows "Read more") -----------------------------------
 async function sendImageMenu(sock, chatId, m, senderId, latency) {
     // Get current image URL and cycle index for next time
     const imageUrl = IMAGE_URLS[currentImageIndex];
@@ -139,31 +101,20 @@ async function sendImageMenu(sock, chatId, m, senderId, latency) {
     const speedEmoji = latency < 100 ? '🚀' : (latency < 300 ? '⚡' : '🐢');
     const speedStatus = latency < 100 ? 'Excellent' : (latency < 300 ? 'Good' : 'Slow');
 
+    // SHORTENED MENU – only the essentials + a note to use submenus
     let caption = '';
-    caption += `╭━━━〔 *BIGMANJ BOT V3* 〕━━━⬣\n`;
-    caption += `┃ *.menu-general*\n`;
-    caption += `┃ *.menu-group*\n`;
-    caption += `┃ *.menu-security*\n`;
-    caption += `┃ *.menu-ai*\n`;
-    caption += `┃ *.menu-download*\n`;
-    caption += `┃ *.menu-effects*\n`;
-    caption += `┃ *.menu-owner*\n`;
-    caption += `┃ *.menu-settings*\n`;
-    caption += `┃ *.menu-tools*\n`;
-    caption += `┃ *.menu-fun*\n`;
-    caption += `┃ *.menu-automation*\n`;
-    caption += `┃ *.menu-all*\n`;
-    caption += `╰━━━━━━━━━━━━━━⬣\n\n`;
-    caption += `${greeting} @${mention}\n\n`;
-    caption += `🤖 *BIGMANJ BOT V3* – *WhatsApp Bot* developed in collaboration with *Ωuantum Base Developer*.\n\n`;
-    caption += `🚀 *Speed:* ${latency}ms ${speedEmoji} (${speedStatus})\n`;
-    caption += `👑 Owner : ${OWNER_NAME}\n`;
-    caption += `📞 Owner No : ${OWNER_NUMBER}\n`;
-    caption += `⚡ Commands : ${TOTAL_COMMANDS}\n`;
-    caption += `📅 Date : ${date}\n`;
-    caption += `⏰ Time : ${time}\n`;
-    caption += `🚀 Runtime : ${runtime}\n\n`;
-    caption += `> © bigmanj tech™`;
+    caption += `╭━━〔 *BIGMANJ BOT V3* 〕━━⬣\n`;
+    caption += `┃${greeting} @${mention}\n`;
+    caption += `┃🚀 Speed: ${latency}ms ${speedEmoji} (${speedStatus})\n`;
+    caption += `┃👑 Owner: ${OWNER_NAME}\n`;
+    caption += `┃📞 Owner No: ${OWNER_NUMBER}\n`;
+    caption += `┃⚡ Commands: ${TOTAL_COMMANDS}\n`;
+    caption += `┃📅 ${date}  ⏰ ${time}\n`;
+    caption += `┃🚀 Runtime: ${runtime}\n`;
+    caption += `╰━━━━━━━━━━━━━━━━━━⬣\n\n`;
+    caption += `📌 *Type one of these:*\n`;
+    caption += `▸ .menu-general\n▸ .menu-group\n▸ .menu-security\n▸ .menu-ai\n▸ .menu-download\n▸ .menu-effects\n▸ .menu-owner\n▸ .menu-settings\n▸ .menu-tools\n▸ .menu-fun\n▸ .menu-automation\n▸ .menu-all\n\n`;
+    caption += `© bigmanj tech™ with ♥︎`;
 
     try {
         await sock.sendMessage(chatId, {
@@ -174,7 +125,7 @@ async function sendImageMenu(sock, chatId, m, senderId, latency) {
         console.log(`🖼️ Image menu sent (index ${currentImageIndex-1 >= 0 ? currentImageIndex-1 : IMAGE_URLS.length-1})`);
     } catch (err) {
         console.error('❌ Image menu send error:', err.message);
-        // Fallback: send text-only menu
+        // Fallback: send text-only menu (also shortened)
         await sock.sendMessage(chatId, { text: caption, mentions: [senderId] }, { quoted: m });
     }
 }
@@ -189,12 +140,10 @@ const menuHandler = async (sock, chatId, m) => {
     await sock.sendMessage(chatId, { react: { text: '📌', key: m.key } });
     const latency = Date.now() - startTime;
 
-    // 1. Send round video note (correctly implemented)
-    await sendVideoNote(sock, chatId, m);
-    // 2. Send voice note
-    await sendVoiceNote(sock, chatId, m);
-    // 3. Send image with menu text (cycles through images)
+    // 1. Send image menu (shortened)
     await sendImageMenu(sock, chatId, m, senderId, latency);
+    // 2. Send voice note (MP3) – after the menu
+    await sendVoiceNote(sock, chatId, m);
 };
 
 module.exports = menuHandler;
