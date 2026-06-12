@@ -167,6 +167,60 @@ global.channelLink = "https://whatsapp.com/channel/0029Vb6B9xFCxoAseuG1g610";
 global.ytch = "MICKEY";
 global.autostatusHandler = require(path.join(process.cwd(), 'commands', 'autostatus.js'));
 
+// ========== POST-UPDATE MESSAGE WITH IMAGE & BUTTON ==========
+/**
+ * Send an image with an interactive "Copy to Clipboard" button that copies '.menu' command.
+ * This helps users easily paste the menu command without typing.
+ */
+async function sendImageWithCopyButton(sock, chatId, imageUrl) {
+    try {
+        const response = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 15000 });
+        const imageBuffer = Buffer.from(response.data);
+        const interactiveButtons = [
+            {
+                name: 'cta_copy',
+                buttonParamsJson: JSON.stringify({
+                    display_text: '📋 MENU',
+                    id: 'copy_menu_command',
+                    copy_code: '.menu'
+                })
+            }
+        ];
+        await sock.sendMessage(chatId, {
+            image: imageBuffer,
+            caption: '🌟 *BIGMANJ BOT V3 IMPROVED* 🌟\n *and ready 🚀*\n\n© bigmanj tech ™ with ♥︎ 🤖',
+            interactiveButtons: interactiveButtons
+        });
+        console.log('✅ Sent image with interactive copy button (post-update).');
+    } catch (error) {
+        console.error('Failed to send image with button. Sending text fallback...', error);
+        const fallbackMsg = '______________________________\n🌟 *BIGMANJ BOT V3 IMPROVED* 🌟\n          *and ready 🚀*\n\n*© bigmanj tech ™ with ♥︎ 🤖*\n\n📋 Copy this command: `.menu`';
+        await sock.sendMessage(chatId, { text: fallbackMsg });
+    }
+}
+
+/**
+ * Check if the bot was just updated (flag file exists) and send the third message.
+ * This function should be called after the WhatsApp connection is successfully opened.
+ */
+async function handlePostUpdateMessage(sock) {
+    const flagFile = path.join(process.cwd(), 'data', 'update_just_done.flag');
+    if (fs.existsSync(flagFile)) {
+        try {
+            const flagData = JSON.parse(fs.readFileSync(flagFile, 'utf8'));
+            const chatId = flagData.chatId;
+            if (chatId && sock) {
+                await sendImageWithCopyButton(sock, chatId, 'https://files.catbox.moe/uii8bi.jpg');
+            }
+        } catch (err) {
+            console.error('Failed to send post-update message:', err);
+        } finally {
+            // Remove flag so it doesn't repeat on next restart
+            fs.removeSync(flagFile);
+        }
+    }
+}
+
 // Online tracker
 global.onlineUsers = new Map();
 const ONLINE_TIMEOUT = 5 * 60 * 1000;
@@ -925,5 +979,6 @@ module.exports = {
     handleStatusUpdate,
     handleGroupParticipantUpdate,
     handleStatus,
-    initOnlineTracker
+    initOnlineTracker,
+    handlePostUpdateMessage   // <-- Export this function to call from index.js/server.js after connection open
 };
