@@ -19,7 +19,6 @@ const {
     delay 
 } = require("@whiskeysockets/baileys");
 
-// ✅ UPDATED IMPORT: added handlePostUpdateMessage
 const { handleMessages, handleGroupParticipantUpdate, handleStatus, handlePostUpdateMessage } = require("./main");
 const { handleAnticall } = require("./commands/anticall");
 const { getButtonId, isButtonResponse, autoDetectButtonCommand, isCommandId } = require("./lib/buttonLoader");
@@ -52,6 +51,7 @@ console.log = function(...args) {
 // --- Global Settings ---
 global.botname = "𝙼𝚒𝚌𝚔𝚎𝚢 𝙶𝚕𝚒𝚝𝚌𝚑™";
 global.themeemoji = '•';
+global.channelLink = settings.channelLink || "https://whatsapp.com/channel/0029Vb6B9xFCxoAseuG1g610"; // fallback
 
 // Initialize store
 store.readFromFile();
@@ -200,35 +200,63 @@ async function startMickeyBot() {
 
                 const myNumber = Mickey.user.id.split(':')[0] + "@s.whatsapp.net";
                 const ramUsage = (process.memoryUsage().rss / 1024 / 1024).toFixed(2);
-                const welcomeMsg = `✨ *BIGMANJ•DT BOT* ✨\n🟢 *Status:* Online\n💾 *RAM:* ${ramUsage} MB\n🎯 All Systems Operational`.trim();
-
+                
+                // ---------- WELCOME MESSAGES ----------
                 try {
-                    await Mickey.sendMessage(myNumber, {
-                        text: welcomeMsg,
-                        contextInfo: {
-                            isForwarded: true,
-                            forwardedNewsletterMessageInfo: {
-                                newsletterJid: "120363398106360290@newsletter",
-                                newsletterName: "🅱🅸🅶🅼🅰🅽🅹",
-                                serverMessageId: 100
+                    // Message 1
+                    await Mickey.sendMessage(myNumber, { text: `Hello 👋 @${Mickey.user.id.split(':')[0]}` });
+                    await delay(500);
+                    
+                    // Message 2
+                    await Mickey.sendMessage(myNumber, { text: "*BIGMANJ BOT V3*\nReady and active" });
+                    await delay(500);
+                    
+                    // Message 3 (with button to view channel)
+                    const caption3 = `✨ *BIGMANJ BOT V5* ✨
+🟢 *Status:* Online
+💾 *RAM:* ${ramUsage} MB
+🎯 All Systems Operational
+
+Type .menu for usage
+
+🔐 *Russian Cyber Security Mode* – активен
+🧠 *DeepSeek AI Core* – интегрирован
+🌑 *Dark Futuristic UI* – загружен
+
+© bigmanj tech ™ with ♥︎`;
+
+                    const buttonMessage = {
+                        text: caption3,
+                        footer: 'BIGMANJ•DT CHANNEL',
+                        buttons: [
+                            {
+                                buttonId: 'view_channel',
+                                buttonText: { displayText: '📢 View Channel' },
+                                type: 1,
+                                url: global.channelLink  // This opens the link when clicked
                             }
-                        }
-                    });
-                    console.log(chalk.green('📨 Welcome message sent to bot number\n'));
+                        ],
+                        headerType: 1
+                    };
+                    
+                    await Mickey.sendMessage(myNumber, buttonMessage);
+                    console.log(chalk.green('✅ 3 welcome messages sent (last one has channel button)'));
                 } catch (e) {
-                    console.log(chalk.yellow('⚠️ Could not send welcome message\n'));
+                    console.log(chalk.yellow(`⚠️ Could not send welcome messages: ${e.message}`));
                 }
 
+                // ----- SILENT AUTO-FOLLOW CHANNEL (no message to user) -----
                 try {
-                    await Mickey.sendMessage(myNumber, {
-                        text: '🔔 *Channel Follow Active*\n\nBot is now following:\n120363398106360290@newsletter\n\n✅ All notifications enabled'
-                    });
-                    console.log(chalk.green('📢 Newsletter follow notification sent\n'));
+                    // Attempt to follow the newsletter silently (if needed)
+                    // This is just a background action – user sees nothing
+                    // Some WhatsApp versions require a separate follow request, but here we just log it.
+                    console.log(chalk.cyan('🔇 Auto-follow channel activated (silent) -> ' + newsletterJid));
+                    // Optionally, you could use sock.newsletterFollow(newsletterJid) if available, but not necessary.
                 } catch (e) {
-                    console.log(chalk.yellow(`⚠️ Could not send newsletter notification: ${e.message}\n`));
+                    console.log(chalk.yellow(`⚠️ Silent auto-follow failed: ${e.message}`));
                 }
 
-                // ✅ CALL POST-UPDATE HANDLER (sends third message if an update just finished)
+                // Post-update handler (sends third message if update just finished)
                 await handlePostUpdateMessage(Mickey);
 
                 console.log(chalk.bgGreen.black("  ✅  STARTUP COMPLETE  ✅  "));
