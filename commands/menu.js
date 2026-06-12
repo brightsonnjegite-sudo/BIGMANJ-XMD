@@ -28,9 +28,7 @@ const getGreeting = () => {
 
 const getMentionNumber = (jid) => jid.split('@')[0];
 
-// Picha – tumia URL moja thabiti (badilisha iwe yako)
 const MENU_IMAGE_URL = 'https://files.catbox.moe/uii8bi.jpg';
-// Sauti – URL yoyote ya mp3 inayofanya kazi
 const AUDIO_URL = 'https://www.learningcontainer.com/wp-content/uploads/2020/02/Kalimba.mp3';
 
 let cachedAudio = null;
@@ -44,6 +42,39 @@ async function getAudioBuffer() {
     } catch (err) {
         console.error('Audio error:', err.message);
         return null;
+    }
+}
+
+// Helper to send interactive buttons (two buttons)
+async function sendMiniMenuButtons(sock, chatId, senderId, quotedMsg) {
+    const buttons = [
+        {
+            buttonId: '.menu-all',
+            buttonText: { displayText: '📂 All Menu' },
+            type: 1
+        },
+        {
+            buttonId: '.menu-owner',
+            buttonText: { displayText: '👑 Owner Menu' },
+            type: 1
+        }
+    ];
+    const buttonMessage = {
+        text: '🔽 *Choose a mini menu:*',
+        footer: 'BIGMANj BOT V3 — bigmanj tech ™',
+        buttons: buttons,
+        headerType: 1,
+        mentions: [senderId]
+    };
+    try {
+        await sock.sendMessage(chatId, buttonMessage, { quoted: quotedMsg });
+    } catch (err) {
+        console.error('Button send failed:', err.message);
+        // Fallback: send as plain text
+        await sock.sendMessage(chatId, { 
+            text: '🔽 Mini menus:\n• Type `.menu-all` for All Menu\n• Type `.menu-owner` for Owner Menu',
+            mentions: [senderId]
+        }, { quoted: quotedMsg });
     }
 }
 
@@ -93,7 +124,7 @@ const menuHandler = async (sock, chatId, m) => {
 *Используйте команды ниже для навигации*
     `.trim();
 
-    // 1. Tuma picha pamoja na caption
+    // 1. Send main menu image + caption
     try {
         await sock.sendMessage(chatId, {
             image: { url: MENU_IMAGE_URL },
@@ -102,15 +133,13 @@ const menuHandler = async (sock, chatId, m) => {
         }, { quoted: m });
     } catch (err) {
         console.error('Image send failed:', err.message);
-        // Fallback: tuma maandishi tu
         await sock.sendMessage(chatId, { text: caption, mentions: [senderId] }, { quoted: m });
     }
 
-    // 2. Tuma maandishi yenye amri (badala ya buttons) – hizi ndizo amri ambazo bot yako tayari inazijua
-    const navText = `📌 *Quick navigation*\n\n• *All Menu* – type \`.menu-all\`\n• *Owner Menu* – type \`.menu-owner\`\n\n© BIGMANJ BOT V3 — by bigmanj tech ™`;
-    await sock.sendMessage(chatId, { text: navText, mentions: [senderId] }, { quoted: m });
+    // 2. Send button message (two mini‑menu buttons)
+    await sendMiniMenuButtons(sock, chatId, senderId, m);
 
-    // 3. Tuma audio
+    // 3. Send audio
     const audioBuffer = await getAudioBuffer();
     if (audioBuffer) {
         await sock.sendMessage(chatId, {
