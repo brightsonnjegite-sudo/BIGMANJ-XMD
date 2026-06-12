@@ -58,18 +58,18 @@ function getSmartMenuCaption(pushname, mention, ping, ramBar, ramPercent, runtim
 ┃
 ┃ ── *📋 MINI MENUS* ──
 ┃
-┃ ▸ \`.menu-general\`
-┃ ▸ \`.menu-group\`
-┃ ▸ \`.menu-security\`
-┃ ▸ \`.menu-ai\`
-┃ ▸ \`.menu-download\`
-┃ ▸ \`.menu-effects\`
-┃ ▸ \`.menu-owner\`
-┃ ▸ \`.menu-settings\`
-┃ ▸ \`.menu-tools\`
-┃ ▸ \`.menu-fun\`
-┃ ▸ \`.menu-automation\`
-┃ ▸ \`.menu-all\`
+┃ ▸ \.menu-general\
+┃ ▸ \.menu-group\
+┃ ▸ \.menu-security\
+┃ ▸ \.menu-ai\
+┃ ▸ \.menu-download\
+┃ ▸ \.menu-effects\
+┃ ▸ \.menu-owner\
+┃ ▸ \.menu-settings\
+┃ ▸ \.menu-tools\
+┃ ▸ \.menu-fun\
+┃ ▸ \.menu-automation\
+┃ ▸ \.menu-all\
 ┃
 ┃ ── *🤖 BOT INFO* ──
 ┃ 🚀 Ping      : ${ping}ms
@@ -90,7 +90,6 @@ function getSmartMenuCaption(pushname, mention, ping, ramBar, ramPercent, runtim
 ┃ 📸 Dynamic menu images
 ┃
 ╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━⬣
-
 © bigmanj tech ™ with ♥︎
     `.trim();
 }
