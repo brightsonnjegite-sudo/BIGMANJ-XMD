@@ -3,8 +3,12 @@ const axios = require('axios');
 const sharp = require('sharp');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
-// ----------------------------- Helper functions -----------------------------
+// ---------- Baileys imports ----------
+const { generateWAMessageFromContent, proto } = require('@whiskeysockets/baileys');
+
+// ---------- Helper functions ----------
 const getMessageText = (m) => {
     if (m.message?.conversation) return m.message.conversation;
     if (m.message?.extendedTextMessage?.text) return m.message.extendedTextMessage.text;
@@ -31,7 +35,7 @@ const getGreeting = () => {
 
 const getMentionNumber = (jid) => jid.split('@')[0];
 
-// ----------------------------- Image & audio URLs -----------------------------
+// ---------- Image & audio URLs ----------
 const MENU_IMAGES = [
     'https://files.catbox.moe/rt3wya.jpg',
     'https://files.catbox.moe/69csjf.jpg',
@@ -52,7 +56,6 @@ async function getRandomImageBuffer() {
     currentImageIndex++;
     try {
         const res = await axios.get(url, { responseType: 'arraybuffer', timeout: 15000 });
-        // Resize to 300x300 (optimal for locationMessage thumbnail)
         const resized = await sharp(res.data)
             .resize(300, 300, { fit: 'cover' })
             .jpeg({ quality: 80 })
@@ -77,23 +80,21 @@ async function getAudioBuffer() {
     }
 }
 
-// ----------------------------- Premium Button V3 -----------------------------
+// ---------- Premium Button V3 ----------
 async function sendButtonV3(sock, chatId, options) {
     const { title, subtitle, body, footer, buttons, thumbnailBuffer, quotedMsg } = options;
 
-    // Build the interactive buttons (for WhatsApp native buttons)
     const buttonRows = buttons.map(btn => ({
         buttonId: btn.id,
         buttonText: { displayText: btn.text },
         type: 1
     }));
 
-    // Generate the locationMessage wrapper (the large card)
     const msg = generateWAMessageFromContent(chatId, {
         buttonsMessage: {
             contentText: body,
             footerText: footer,
-            headerType: 6, // LOCATION
+            headerType: 6,
             locationMessage: {
                 degreesLatitude: 0,
                 degreesLongitude: 0,
@@ -128,22 +129,22 @@ async function sendButtonV3(sock, chatId, options) {
     await sock.relayMessage(chatId, msg.message, { messageId: msg.key.id });
 }
 
-// ----------------------------- Menu Handler -----------------------------
+// ---------- Main menu handler ----------
 const menuHandler = async (sock, chatId, m) => {
     const text = getMessageText(m).trim().toLowerCase();
     if (text !== '.menu') return;
 
     const senderId = m.key.participant || m.key.remoteJid;
     const pushname = m.pushName || "User";
-    const isOwner = (senderId.split('@')[0] === "255777580820"); // adjust as needed
+    const isOwner = (senderId.split('@')[0] === "255777580820");
     const status = isOwner ? "👑 OWNER" : "🤖 USER";
     const start = Date.now();
     await sock.sendMessage(chatId, { react: { text: '📌', key: m.key } });
     const ping = Date.now() - start;
 
     // System stats
-    const totalMem = require('os').totalmem();
-    const freeMem = require('os').freemem();
+    const totalMem = os.totalmem();
+    const freeMem = os.freemem();
     const usedMem = totalMem - freeMem;
     const ramPercent = Math.round((usedMem / totalMem) * 100);
     const ramBar = "█".repeat(Math.round(ramPercent / 10)) + "░".repeat(10 - Math.round(ramPercent / 10));
@@ -153,7 +154,6 @@ const menuHandler = async (sock, chatId, m) => {
     const library = "Baileys";
     const ownerName = "bigmanj tech";
 
-    // Build the menu caption (Unicode box + Russian/English cyberpunk style)
     const greeting = getGreeting();
     const mention = getMentionNumber(senderId);
     const caption = `
@@ -177,16 +177,21 @@ const menuHandler = async (sock, chatId, m) => {
 *Используйте кнопки ниже для навигации*
     `.trim();
 
-    // Get a random high-quality thumbnail
     const thumbnail = await getRandomImageBuffer();
     if (!thumbnail) {
-        // Fallback: send as plain text
         await sock.sendMessage(chatId, { text: caption, mentions: [senderId] }, { quoted: m });
-        await sock.sendMessage(chatId, { audio: { url: AUDIO_URL }, mimetype: 'audio/mpeg', ptt: false }, { quoted: m });
+        const audioBuffer = await getAudioBuffer();
+        if (audioBuffer) {
+            await sock.sendMessage(chatId, {
+                audio: audioBuffer,
+                mimetype: 'audio/mpeg',
+                ptt: false,
+                fileName: 'menu_audio.mp3'
+            }, { quoted: m });
+        }
         return;
     }
 
-    // Send the premium button menu
     await sendButtonV3(sock, chatId, {
         title: "⚡ BIGMANJ BOT V3 ⚡",
         subtitle: "© bigmanj tech ™ with ♥︎",
@@ -200,7 +205,6 @@ const menuHandler = async (sock, chatId, m) => {
         quotedMsg: m
     });
 
-    // Send the audio (optional – you can remove if you prefer only the button menu)
     const audioBuffer = await getAudioBuffer();
     if (audioBuffer) {
         await sock.sendMessage(chatId, {
