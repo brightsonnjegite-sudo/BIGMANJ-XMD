@@ -5,14 +5,19 @@ const ANTICALL_PATH = path.join(process.cwd(), 'data', 'anticall.json');
 
 function readState() {
     try {
-        if (!fs.existsSync(ANTICALL_PATH)) return { enabled: false, callCounts: {} };
+        if (!fs.existsSync(ANTICALL_PATH)) {
+            // Rudisha hali chaguo-msingi (OFF)
+            return { enabled: false, callCounts: {} };
+        }
         const raw = fs.readFileSync(ANTICALL_PATH, 'utf8');
-        const data = JSON.parse(raw || '{}');
+        const data = JSON.parse(raw);
+        // Hakikisha enabled ni boolean
         return {
-            enabled: !!data.enabled,
+            enabled: data.enabled === true,
             callCounts: data.callCounts || {}
         };
-    } catch {
+    } catch (err) {
+        console.error('Error reading anticall state:', err);
         return { enabled: false, callCounts: {} };
     }
 }
@@ -22,8 +27,9 @@ function writeState(state) {
         const dir = path.dirname(ANTICALL_PATH);
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
         fs.writeFileSync(ANTICALL_PATH, JSON.stringify(state, null, 2));
+        console.log(`✅ Anticall state saved: enabled=${state.enabled}`);
     } catch (err) {
-        console.log(`Failed to write anticall state: ${err.message}`);
+        console.error(`Failed to write anticall state: ${err.message}`);
     }
 }
 
@@ -77,8 +83,10 @@ Auto‑ban after 3 calls: YES
     await sock.sendMessage(chatId, { text: responseText }, { quoted: message });
 }
 
-async function sendCallPolicyMessage(sock, toJid, callerNumber) {
-    const policyMsg = 
+async function sendCallPolicyMessage(sock, toJid, callerNumber, callCount) {
+    let policyMsg;
+    if (callCount === 1) {
+        policyMsg = 
 `*🤖 BIGMANJ BOT V3* 
 by *~© bigmanj tech ™~*
 
@@ -93,6 +101,23 @@ by *~© bigmanj tech ™~*
 *If repeated three times @${callerNumber} blocked*
 
 © bigmanj tech ™ with ♥︎`;
+    } else if (callCount === 2) {
+        policyMsg = 
+`⚠️ *WARNING* ⚠️
+
+You have called ${callCount} time(s).
+One more call and you will be *PERMANENTLY BLOCKED*.
+
+© bigmanj tech ™ with ♥︎`;
+    } else {
+        policyMsg = 
+`🚫 *YOU HAVE BEEN BLOCKED* 🚫
+
+You ignored the policy and called 3 times.
+Bot has now blocked you permanently.
+
+© bigmanj tech ™ with ♥︎`;
+    }
     await sock.sendMessage(toJid, { text: policyMsg });
 }
 
@@ -113,28 +138,47 @@ async function handleAnticall(sock, update) {
             return;
         }
 
-        const currentCount = state.callCounts[rawNumber] || 0;
+        // Soma hali ya sasa ili kuhakikisha tunatumia data fresh
+        const currentState = readState();
+        const currentCount = currentState.callCounts[rawNumber] || 0;
         const newCount = currentCount + 1;
-        state.callCounts[rawNumber] = newCount;
-        writeState(state);
+        currentState.callCounts[rawNumber] = newCount;
+        writeState(currentState);
 
+        // Kata simu
         if (typeof sock.rejectCall === 'function') {
             await sock.rejectCall(call[0].id, callerId);
+        } else {
+            console.log('⚠️ sock.rejectCall not available, call not rejected');
         }
         console.log(`📵 Call rejected from: ${rawNumber} (count: ${newCount})`);
 
-        await sendCallPolicyMessage(sock, callerId, rawNumber);
+        // Tuma ujumbe kulingana na idadi ya simu
+        await sendCallPolicyMessage(sock, callerId, rawNumber, newCount);
 
+        // Ikiwa imefikia 3, zuia mtumiaji kabisa
         if (newCount >= 3) {
-            // if (typeof sock.updateBlockStatus === 'function') {
-            //     await sock.updateBlockStatus(callerId, 'block');
-            // }
-            console.log(`🚫 User ${rawNumber} blocked after 3 calls`);
-            delete state.callCounts[rawNumber];
-            writeState(state);
+            // Jaribu kuzuia kwa njia tofauti (Baileys, whatsapp-web.js, nk)
+            try {
+                if (typeof sock.updateBlockStatus === 'function') {
+                    await sock.updateBlockStatus(callerId, 'block');
+                    console.log(`🚫 User ${rawNumber} BLOCKED successfully via updateBlockStatus`);
+                } else if (typeof sock.blockUser === 'function') {
+                    await sock.blockUser(callerId);
+                    console.log(`🚫 User ${rawNumber} BLOCKED successfully via blockUser`);
+                } else {
+                    console.log('⚠️ No block function available. User not blocked.');
+                }
+            } catch (blockErr) {
+                console.error(`Failed to block user: ${blockErr.message}`);
+            }
+
+            // Onya kwenye console na safisha hesabu
+            delete currentState.callCounts[rawNumber];
+            writeState(currentState);
         }
     } catch (err) {
-        console.log(`Anticall error: ${err.message}`);
+        console.error(`Anticall error: ${err.message}`);
     }
 }
 
