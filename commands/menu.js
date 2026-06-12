@@ -33,7 +33,8 @@ const OWNER_NAME = 'BIGMANj';
 const OWNER_NUMBER = '255777580820';
 
 // ----------------------------------- Multimedia URLs -----------------------------------
-const VOICE_NOTE_URL = 'https://files.catbox.moe/sc2tlj.mp3';
+// Use a reliable MP3 URL (replace if needed)
+const AUDIO_URL = 'https://www.learningcontainer.com/wp-content/uploads/2020/02/Kalimba.mp3';
 
 // Cyclic image URLs (8 images)
 const IMAGE_URLS = [
@@ -47,44 +48,43 @@ const IMAGE_URLS = [
     'https://files.catbox.moe/gom02i.jpg'
 ];
 
-// Global counter for cycling images
 let currentImageIndex = 0;
+let cachedAudio = null;
 
-// Cache for voice buffer
-let cachedVoice = null;
-
-async function getVoiceBuffer() {
-    if (cachedVoice) return cachedVoice;
+async function getAudioBuffer() {
+    if (cachedAudio) return cachedAudio;
     try {
-        const res = await axios.get(VOICE_NOTE_URL, { responseType: 'arraybuffer', timeout: 30000 });
-        cachedVoice = Buffer.from(res.data);
-        console.log('✅ Voice note loaded, size:', cachedVoice.length);
-        return cachedVoice;
+        const res = await axios.get(AUDIO_URL, { responseType: 'arraybuffer', timeout: 30000 });
+        cachedAudio = Buffer.from(res.data);
+        console.log('✅ Audio loaded, size:', cachedAudio.length);
+        return cachedAudio;
     } catch (err) {
-        console.error('❌ Voice note error:', err.message);
+        console.error('❌ Audio error:', err.message);
         return null;
     }
 }
 
-async function sendVoiceNote(sock, chatId, quotedMsg) {
-    const buffer = await getVoiceBuffer();
+async function sendAudio(sock, chatId, quotedMsg) {
+    const buffer = await getAudioBuffer();
     if (!buffer) {
-        console.log('⚠️ No voice buffer – skipping voice note');
+        console.log('⚠️ No audio buffer – sending text fallback');
+        await sock.sendMessage(chatId, { text: "🔊 *Audio unavailable*\nPlease check the audio URL later." }, { quoted: quotedMsg });
         return;
     }
     try {
         await sock.sendMessage(chatId, {
             audio: buffer,
             mimetype: 'audio/mpeg',
-            ptt: true
+            ptt: false,         // ← sends as regular MP3, not voice note
+            fileName: 'menu_audio.mp3'
         }, { quoted: quotedMsg });
-        console.log('🎤 Voice note sent successfully');
+        console.log('🎵 Audio sent successfully (regular MP3)');
     } catch (err) {
-        console.error('❌ Voice note send error:', err.message);
+        console.error('❌ Audio send error:', err.message);
+        await sock.sendMessage(chatId, { text: "❌ Failed to send audio." }, { quoted: quotedMsg });
     }
 }
 
-// ----------------------------------- Menu with English caption, correct footer, no foreign branding -----------------------------------
 async function sendImageMenu(sock, chatId, m, senderId, latency) {
     const imageUrl = IMAGE_URLS[currentImageIndex];
     currentImageIndex = (currentImageIndex + 1) % IMAGE_URLS.length;
@@ -100,13 +100,15 @@ async function sendImageMenu(sock, chatId, m, senderId, latency) {
     const speedEmoji = latency < 100 ? '🚀' : (latency < 300 ? '⚡' : '🐢');
     const speedStatus = latency < 100 ? 'Excellent' : (latency < 300 ? 'Good' : 'Slow');
 
-    // Clean English caption – no Zero Trash / Ghost
     let caption = '';
-    caption += `╭━━〔 *BIGMANJ BOT V3* 〕━━⬣\n`;
-    caption += `┃${greeting} @${mention}\n`;
-    caption += `┃🤖 WhatsApp automation tool\n`;
-    caption += `┃🔧 Make your WhatsApp smarter\n`;
-    caption += `╰━━━━━━━━━━━━━━━━━━⬣\n\n`;
+    caption += `⚠ ДОСТУП РАЗРЕШЁН ⚠\n`;
+    caption += `*BIGMANJ BOT V3*\n`;
+    caption += `Скорость выше предела.\n`;
+    caption += `Интеллект без границ.\n`;
+    caption += `Мощь нового поколения.\n`;
+    caption += `СТАТУС: АКТИВЕН\n`;
+    caption += `РЕЖИМ: ЭЛИТА\n\n`;
+    caption += `${greeting} @${mention}\n\n`;
     caption += `📌 *User Info*\n`;
     caption += `   • Status: User\n`;
     caption += `   • Name: @${mention}\n`;
@@ -123,7 +125,6 @@ async function sendImageMenu(sock, chatId, m, senderId, latency) {
     caption += `   .menu-owner      .menu-settings\n`;
     caption += `   .menu-tools      .menu-fun\n`;
     caption += `   .menu-automation  .menu-all\n\n`;
-    // Footer as requested
     caption += `~bigmanj tech~\n`;
     caption += `© bigmanj tech ™\n`;
     caption += `~*BIGMANJ BOT V3*~ by ~*© bigmanj tech ™ with ♥︎*~`;
@@ -141,7 +142,6 @@ async function sendImageMenu(sock, chatId, m, senderId, latency) {
     }
 }
 
-// ----------------------------------- Main handler -----------------------------------
 const menuHandler = async (sock, chatId, m) => {
     const text = getMessageText(m).trim().toLowerCase();
     if (text !== '.menu') return;
@@ -151,10 +151,8 @@ const menuHandler = async (sock, chatId, m) => {
     await sock.sendMessage(chatId, { react: { text: '📌', key: m.key } });
     const latency = Date.now() - startTime;
 
-    // 1. Send image menu (with new English caption and correct footer)
     await sendImageMenu(sock, chatId, m, senderId, latency);
-    // 2. Send voice note after menu
-    await sendVoiceNote(sock, chatId, m);
+    await sendAudio(sock, chatId, m);
 };
 
 module.exports = menuHandler;
