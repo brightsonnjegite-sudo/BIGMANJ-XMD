@@ -29,54 +29,6 @@ const getGreeting = () => {
 const getMentionNumber = (jid) => jid.split('@')[0];
 
 const MENU_IMAGE_URL = 'https://files.catbox.moe/uii8bi.jpg';
-const AUDIO_URL = 'https://www.learningcontainer.com/wp-content/uploads/2020/02/Kalimba.mp3';
-
-let cachedAudio = null;
-
-async function getAudioBuffer() {
-    if (cachedAudio) return cachedAudio;
-    try {
-        const res = await axios.get(AUDIO_URL, { responseType: 'arraybuffer', timeout: 30000 });
-        cachedAudio = Buffer.from(res.data);
-        return cachedAudio;
-    } catch (err) {
-        console.error('Audio error:', err.message);
-        return null;
-    }
-}
-
-// Helper to send interactive buttons (two buttons)
-async function sendMiniMenuButtons(sock, chatId, senderId, quotedMsg) {
-    const buttons = [
-        {
-            buttonId: '.menu-all',
-            buttonText: { displayText: '📂 All Menu' },
-            type: 1
-        },
-        {
-            buttonId: '.menu-owner',
-            buttonText: { displayText: '👑 Owner Menu' },
-            type: 1
-        }
-    ];
-    const buttonMessage = {
-        text: '🔽 *Choose a mini menu:*',
-        footer: 'BIGMANj BOT V3 — bigmanj tech ™',
-        buttons: buttons,
-        headerType: 1,
-        mentions: [senderId]
-    };
-    try {
-        await sock.sendMessage(chatId, buttonMessage, { quoted: quotedMsg });
-    } catch (err) {
-        console.error('Button send failed:', err.message);
-        // Fallback: send as plain text
-        await sock.sendMessage(chatId, { 
-            text: '🔽 Mini menus:\n• Type `.menu-all` for All Menu\n• Type `.menu-owner` for Owner Menu',
-            mentions: [senderId]
-        }, { quoted: quotedMsg });
-    }
-}
 
 const menuHandler = async (sock, chatId, m) => {
     const text = getMessageText(m).trim().toLowerCase();
@@ -121,10 +73,10 @@ const menuHandler = async (sock, chatId, m) => {
 ✨ *Premium AI Assistant* – готов
 🌑 *Dark Futuristic UI* – загружен
 
-*Используйте команды ниже для навигации*
+*Tap the button below for Owner Menu*
     `.trim();
 
-    // 1. Send main menu image + caption
+    // Send image + caption
     try {
         await sock.sendMessage(chatId, {
             image: { url: MENU_IMAGE_URL },
@@ -136,18 +88,27 @@ const menuHandler = async (sock, chatId, m) => {
         await sock.sendMessage(chatId, { text: caption, mentions: [senderId] }, { quoted: m });
     }
 
-    // 2. Send button message (two mini‑menu buttons)
-    await sendMiniMenuButtons(sock, chatId, senderId, m);
+    // Send a REAL interactive button (works on WhatsApp)
+    const buttonMessage = {
+        text: '🔽 *Mini Menu*',
+        footer: 'BIGMANj BOT V3 — bigmanj tech ™',
+        buttons: [
+            {
+                buttonId: 'owner_menu',        // This ID will be received when clicked
+                buttonText: { displayText: '👑 Owner Menu' },
+                type: 1
+            }
+        ],
+        headerType: 1,
+        viewOnce: false
+    };
 
-    // 3. Send audio
-    const audioBuffer = await getAudioBuffer();
-    if (audioBuffer) {
-        await sock.sendMessage(chatId, {
-            audio: audioBuffer,
-            mimetype: 'audio/mpeg',
-            ptt: false,
-            fileName: 'menu_audio.mp3'
-        }, { quoted: m });
+    try {
+        await sock.sendMessage(chatId, buttonMessage, { quoted: m });
+    } catch (err) {
+        console.error('Button send failed:', err.message);
+        // Fallback: text instruction
+        await sock.sendMessage(chatId, { text: '🔽 Owner Menu: type `.owner`', mentions: [senderId] }, { quoted: m });
     }
 };
 
