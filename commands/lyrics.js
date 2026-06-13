@@ -9,7 +9,7 @@ const getGreeting = () => {
     return '🌙 Habari za Jioni';
 };
 
-// ✅ THIS FUNCTION WAS MISSING
+// Helper to extract artist/title from query (optional, but kept for better search)
 function parseQuery(query) {
     if (query.includes(' - ')) {
         const parts = query.split(' - ');
@@ -22,7 +22,7 @@ function parseQuery(query) {
     return { artist: null, title: query };
 }
 
-// Nexray API (primary)
+// Nexray API (only source)
 async function fetchFromNexray(query) {
     const url = `https://api.nexray.eu.cc/search/lyrics?q=${encodeURIComponent(query)}`;
     const response = await axios.get(url, { timeout: 15000 });
@@ -38,35 +38,6 @@ async function fetchFromNexray(query) {
     throw new Error('No lyrics from Nexray');
 }
 
-// Fallback APIs
-async function fetchFromSomeRandom(query) {
-    const url = `https://some-random-api.com/lyrics?title=${encodeURIComponent(query)}`;
-    const res = await axios.get(url, { timeout: 10000 });
-    if (res.data?.lyrics) {
-        return { title: res.data.title, artist: res.data.author, lyrics: res.data.lyrics, source: 'SomeRandom' };
-    }
-    throw new Error('No lyrics from SomeRandom');
-}
-
-async function fetchFromLyricsOvh(artist, title) {
-    const url = `https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`;
-    const res = await axios.get(url, { timeout: 10000 });
-    if (res.data?.lyrics) {
-        return { title, artist, lyrics: res.data.lyrics, source: 'lyrics.ovh' };
-    }
-    throw new Error('No lyrics from lyrics.ovh');
-}
-
-async function fetchFromLyrist(query) {
-    const url = `https://lyrist.vercel.app/api/lyrics?q=${encodeURIComponent(query)}`;
-    const res = await axios.get(url, { timeout: 10000 });
-    if (res.data?.lyrics) {
-        return { title: res.data.title || query, artist: res.data.artist || 'Unknown', lyrics: res.data.lyrics, source: 'Lyrist' };
-    }
-    throw new Error('No lyrics from Lyrist');
-}
-
-// Main command
 const lyricsCommand = async (sock, chatId, message, args) => {
     try {
         let query = (args || '').trim();
@@ -85,49 +56,25 @@ const lyricsCommand = async (sock, chatId, message, args) => {
 
         await sock.sendMessage(chatId, { react: { text: '⏳', key: message.key } });
 
-        let result = null;
-
-        // Try Nexray first
-        try {
-            result = await fetchFromNexray(query);
-        } catch (e) {
-            console.log(`Nexray failed: ${e.message}`);
-            // Fallback to SomeRandom
-            try {
-                result = await fetchFromSomeRandom(query);
-            } catch (e2) {
-                console.log(`SomeRandom failed: ${e2.message}`);
-                // Try lyrics.ovh if artist-title format
-                const { artist, title } = parseQuery(query);
-                if (artist && title) {
-                    try {
-                        result = await fetchFromLyricsOvh(artist, title);
-                    } catch (e3) {}
-                }
-                // Last fallback
-                if (!result) {
-                    try {
-                        result = await fetchFromLyrist(query);
-                    } catch (e4) {}
-                }
-            }
-        }
+        // Use only Nexray API
+        let result = await fetchFromNexray(query);
 
         if (!result) {
-            throw new Error(`No lyrics found for "${query}". Try "Bado Nakupenda" or "Zuchu - Bado Nakupenda".`);
+            throw new Error(`No lyrics found for "${query}". Try a different song title.`);
         }
 
         const senderId = message.key.participant || message.key.remoteJid;
         const mention = getMentionNumber(senderId);
         const greeting = getGreeting();
 
-        let caption = `✨ ${greeting} @${mention}\n\n`;
+        let caption = `${greeting} @${mention}\n\n`;
         caption += `🎵 *LYRICS*\n━━━━━━━━━━━━━━━━━━━━━━\n`;
         caption += `*Title:* ${result.title}\n`;
         caption += `*Artist:* ${result.artist}\n\n`;
         caption += `*Lyrics:*\n${result.lyrics}\n\n`;
-        caption += `🚀 *BIGMANj MD* — Fast • Powerful • Reliable\n\n> bigmanj tech™`;
-        caption += `\n_📡 via ${result.source}_`;
+        caption += `🚀 *BIGMANJ BOT V3* — Fast • Powerful • Reliable\n`;
+        caption += `© bigmanj tech ™ with ♥︎\n`;
+        caption += `_📡 via ${result.source}_`;
 
         if (caption.length > 60000) {
             await sock.sendMessage(chatId, { text: '❌ Lyrics too long to send.' }, { quoted: message });
