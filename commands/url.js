@@ -1,7 +1,48 @@
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 const fs = require('fs');
 const path = require('path');
-const { UploadFileUgu, TelegraPh } = require('../lib/uploader');
+const axios = require('axios');
+
+/**
+ * Upload a file to catbox.moe using raw multipart/form-data (no external packages)
+ * @param {string} filePath - local path to the file
+ * @returns {Promise<string>} - direct URL (https://files.catbox.moe/...)
+ */
+async function uploadToCatbox(filePath) {
+    const fileData = fs.readFileSync(filePath);
+    const fileName = path.basename(filePath);
+    const boundary = '----CatboxBoundary' + Date.now();
+    const CRLF = '\r\n';
+
+    let formData = '';
+    formData += '--' + boundary + CRLF;
+    formData += 'Content-Disposition: form-data; name="reqtype"' + CRLF + CRLF;
+    formData += 'fileupload' + CRLF;
+
+    formData += '--' + boundary + CRLF;
+    formData += `Content-Disposition: form-data; name="fileToUpload"; filename="${fileName}"` + CRLF;
+    formData += 'Content-Type: application/octet-stream' + CRLF + CRLF;
+
+    const headerBuffer = Buffer.from(formData, 'utf-8');
+    const fileBuffer = fileData;
+    const footerBuffer = Buffer.from(CRLF + '--' + boundary + '--' + CRLF, 'utf-8');
+
+    const body = Buffer.concat([headerBuffer, fileBuffer, footerBuffer]);
+
+    const response = await axios.post('https://catbox.moe/user/api.php', body, {
+        headers: {
+            'Content-Type': `multipart/form-data; boundary=${boundary}`,
+            'Content-Length': body.length
+        },
+        timeout: 60000
+    });
+
+    const url = response.data.trim();
+    if (!url.startsWith('https://files.catbox.moe/')) {
+        throw new Error('Catbox returned invalid URL: ' + url);
+    }
+    return url;
+}
 
 async function getMediaBufferAndExt(message) {
     const m = message.message || {};
@@ -21,7 +62,6 @@ async function getMediaBufferAndExt(message) {
         const stream = await downloadContentFromMessage(m.audioMessage, 'audio');
         const chunks = [];
         for await (const chunk of stream) chunks.push(chunk);
-        // default mp3 for voice/ptt may be opus; still use .mp3 generically
         return { buffer: Buffer.concat(chunks), ext: '.mp3' };
     }
     if (m.documentMessage) {
@@ -49,12 +89,11 @@ async function getQuotedMediaBufferAndExt(message) {
 
 async function urlCommand(sock, chatId, message) {
     try {
-        // Prefer current message media, else quoted media
         let media = await getMediaBufferAndExt(message);
         if (!media) media = await getQuotedMediaBufferAndExt(message);
 
         if (!media) {
-            await sock.sendMessage(chatId, { text: 'Send or reply to a media (image, video, audio, sticker, document) to get a URL.' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: '❌ Send or reply to a media (image, video, audio, sticker, document) to get a Catbox URL.' }, { quoted: message });
             return;
         }
 
@@ -65,37 +104,25 @@ async function urlCommand(sock, chatId, message) {
 
         let url = '';
         try {
-            if (media.ext === '.jpg' || media.ext === '.png' || media.ext === '.webp') {
-                // Try TelegraPh for images/webp first (fast, simple)
-                try {
-                    url = await TelegraPh(tempPath);
-                } catch {
-                    // Fallback to Uguu for any file type
-                    const res = await UploadFileUgu(tempPath);
-                    url = typeof res === 'string' ? res : (res.url || res.url_full || JSON.stringify(res));
-                }
-            } else {
-                const res = await UploadFileUgu(tempPath);
-                url = typeof res === 'string' ? res : (res.url || res.url_full || JSON.stringify(res));
-            }
+            url = await uploadToCatbox(tempPath);
         } finally {
             setTimeout(() => {
-                try { if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath); } catch {}
+                try { if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath); } catch (e) {}
             }, 2000);
         }
 
         if (!url) {
-            await sock.sendMessage(chatId, { text: 'Failed to upload media.' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: '❌ Failed to upload media to Catbox.' }, { quoted: message });
             return;
         }
 
-        await sock.sendMessage(chatId, { text: `URL: ${url}` }, { quoted: message });
+        // Added footer
+        const responseText = `🔗 *Catbox URL:*\n${url}\n\n© bigmanj tech ™ with ♥︎`;
+        await sock.sendMessage(chatId, { text: responseText }, { quoted: message });
     } catch (error) {
         console.error('[URL] error:', error?.message || error);
-        await sock.sendMessage(chatId, { text: 'Failed to convert media to URL.' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: '❌ Failed to convert media to URL.' }, { quoted: message });
     }
 }
 
 module.exports = urlCommand;
-
-
