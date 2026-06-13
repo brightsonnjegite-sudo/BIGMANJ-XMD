@@ -35,11 +35,10 @@ async function pingCommand(sock, chatId, message) {
         const speedStatus = getSpeedStatus(latency);
 
         const pingText = `
-       *BIGMANJ BOT V3*    
-
-       *BIGMANJ BOT V3 ENGINE*
-                  📡
-       *SYSTEM STATUS REPORT*
+           
+   
+              📡
+     *SYSTEM STATUS REPORT*
 ━━━━━━━━━━━━━━━━━━
 
 🚀 *Speed*
@@ -80,9 +79,9 @@ async function pingCommand(sock, chatId, message) {
         ];
 
         await sendButtons(sock, chatId, {
-            title: '⚡ *BIGMANj ENGINE*',
+            title: ' *BIGMANJI  BOT V3 ENGINE*',
             text: pingText,
-            footer: 'Bigmanj Tech',
+            footer: '© bigmanj tech ™ with ♥︎',
             buttons: buttons
         }, { quoted: message });
 
