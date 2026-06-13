@@ -1,12 +1,12 @@
 /**
- * MICKEY GLITCH- MAIN HANDLER
- * Complete with Welcome/Goodbye Toggle Commands & Event Handlers
+ *📡 BIGMANJ BOT V3 - COMPLETE MAIN HANDLER
+ * Includes: all original commands + welcome/goodbye toggle + event handlers
  */
 
-// 🧹 Fix for ENOSPC / temp overflow
 const fs = require('fs');
 const path = require('path');
 
+// Fix temp storage
 const customTemp = path.join(process.cwd(), 'temp');
 const customTmp = path.join(process.cwd(), 'tmp');
 if (!fs.existsSync(customTemp)) fs.mkdirSync(customTemp, { recursive: true });
@@ -30,7 +30,7 @@ setInterval(() => {
 const settings = require('./settings');
 require('./config.js');
 
-// ========== ALL IMPORTS (as in original working bot) ==========
+// ========== ALL IMPORTS (your original commands) ==========
 const { isBanned } = require('./lib/isBanned');
 const yts = require('yt-search');
 const { fetchBuffer } = require('./lib/myfunc');
@@ -151,7 +151,7 @@ const menuFun = require('./commands/menu-fun');
 const menuAutomation = require('./commands/menu-automation');
 const menuAll = require('./commands/menu-all');
 
-// ========== WELCOME / GOODBYE SETTINGS & HANDLERS (built-in) ==========
+// ========== WELCOME / GOODBYE TOGGLE SETTINGS & HANDLERS ==========
 const moment = require('moment-timezone');
 
 const welcomeSettingsFile = path.join(process.cwd(), 'data', 'welcome_settings.json');
@@ -306,7 +306,7 @@ async function toggleGoodbyeCommand(sock, chatId, message, args) {
     }
 }
 
-// ========== GLOBAL SETTINGS & ONLINE TRACKER ==========
+// ========== GLOBAL & ONLINE TRACKER ==========
 global.packname = settings.packname;
 global.author = settings.author;
 global.channelLink = "https://whatsapp.com/channel/0029Vb6B9xFCxoAseuG1g610";
@@ -429,7 +429,7 @@ async function handleStatus(sock, messageUpdate) {
     } catch(e) { console.error(e); }
 }
 
-// ========== MESSAGE HANDLER WITH FULL SWITCH ==========
+// ========== MESSAGE HANDLER (with full switch) ==========
 async function handleMessages(sock, messageUpdate, printLog) {
     try {
         const { messages, type } = messageUpdate;
@@ -572,7 +572,7 @@ async function handleMessages(sock, messageUpdate, printLog) {
             } catch(e) {}
         }
 
-        // ========== SWITCH (full original + new welcome/goodbye) ==========
+        // ========== THE BIG SWITCH (all your commands + new toggles) ==========
         switch (true) {
             case userMessage === '.menu-general':
                 await menuGeneral(sock, chatId, message);
@@ -611,7 +611,7 @@ async function handleMessages(sock, messageUpdate, printLog) {
                 await menuAll(sock, chatId, message);
                 commandExecuted = true; break;
 
-            // New welcome/goodbye toggle commands
+            // New toggle commands
             case userMessage === '.welcome':
                 await toggleWelcomeCommand(sock, chatId, message, rawText.split(' ').slice(1));
                 commandExecuted = true; break;
@@ -619,7 +619,7 @@ async function handleMessages(sock, messageUpdate, printLog) {
                 await toggleGoodbyeCommand(sock, chatId, message, rawText.split(' ').slice(1));
                 commandExecuted = true; break;
 
-            // ==== ALL ORIGINAL COMMANDS (keep exactly as they were) ====
+            // ========== ALL YOUR ORIGINAL COMMANDS (keep as they were) ==========
             case userMessage.startsWith('.add'):
                 const addArgs = userMessage.trim().split(/\s+/);
                 const phoneNumber = addArgs.slice(1).join(' ').trim();
