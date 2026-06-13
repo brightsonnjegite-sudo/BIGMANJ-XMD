@@ -47,57 +47,65 @@ const userImageIndex = new Map();
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// --------------------- SMART MENU CAPTION (includes all mini‑menus) ---------------------
+// --------------------- NEW: SMART MENU WITH READ MORE ---------------------
 function getSmartMenuCaption(pushname, mention, ping, ramBar, ramPercent, runtime, version, totalCommands) {
     const ownerNumber = "255777580820";
     const ownerName = "bigmanj tech";
 
-    return `
+    // SEHEMU INAYOONEKANA (juu) – BOT INFO + OWNER
+    const visiblePart = `
 ╭━━〔 *🌟 BIGMANJ BOT V3* 〕━━⬣
 ┃ ${getGreeting()} @${mention} (${pushname})
 ┃
-┃ ── *📋 MINI MENUS* ──
-┃
-┃ ▸ \.menu-general\
-┃ ▸ \.menu-group\
-┃ ▸ \.menu-security\
-┃ ▸ \.menu-ai\
-┃ ▸ \.menu-download\
-┃ ▸ \.menu-effects\
-┃ ▸ \.menu-owner\
-┃ ▸ \.menu-settings\
-┃ ▸ \.menu-tools\
-┃ ▸ \.menu-fun\
-┃ ▸ \.menu-automation\
-┃ ▸ \.menu-all\
-┃
-┃ ── *🤖 BOT INFO* ──
+┃ 🤖 *BOT INFO*
 ┃ 🚀 Ping      : ${ping}ms
 ┃ 💾 RAM       : ${ramBar} ${ramPercent}%
 ┃ ⏱️ Uptime    : ${runtime}
 ┃ 📦 Version   : ${version}
 ┃ 📚 Commands  : ${totalCommands}
 ┃
-┃ ── *👑 OWNER* ──
+┃ 👑 *OWNER*
 ┃ Name  : ${ownerName}
 ┃ Phone : wa.me/${ownerNumber}
-┃
-┃ ── *✨ FEATURES* ──
-┃ 🔐 Russian Cyber Security Mode
-┃ 🧠 Premium AI Assistant (GPT‑4)
-┃ 🌑 Dark Futuristic UI
-┃ 🎵 MP3 audio & voice tools
-┃ 📸 Dynamic menu images
-┃> *~script 📃 is under construction🚧~*
- > *~sorry 😔 for my rough work~*
-╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━⬣
+    `.trim();
+
+    // SEHEMU ILIYOFICHWA (read more) – MINI MENUS + FEATURES + FOOTER
+    const hiddenPart = `
+📋 *MINI MENUS*
+▸ \`.menu-general\`
+▸ \`.menu-group\`
+▸ \`.menu-security\`
+▸ \`.menu-ai\`
+▸ \`.menu-download\`
+▸ \`.menu-effects\`
+▸ \`.menu-owner\`
+▸ \`.menu-settings\`
+▸ \`.menu-tools\`
+▸ \`.menu-fun\`
+▸ \`.menu-automation\`
+▸ \`.menu-all\`
+
+✨ *FEATURES*
+🔐 Russian Cyber Security Mode
+🧠 Premium AI Assistant (GPT‑4)
+🌑 Dark Futuristic UI
+🎵 MP3 audio & voice tools
+📸 Dynamic menu images
+> *~script 📃 is under construction🚧~*
+> *~sorry 😔 for my rough work~*
+
 © bigmanj tech ™ with ♥︎
     `.trim();
+
+    // Mistari 20 ya kuficha (inayosababisha "Read more")
+    const readMoreBreaks = '\n'.repeat(20);
+    
+    return `${visiblePart}${readMoreBreaks}${hiddenPart}`;
 }
 
-// --------------------- Send MP3 audio (normal, not voice note) ---------------------
+// --------------------- Send MP3 audio ---------------------
 async function sendMp3Audio(sock, chatId, quotedMsg) {
-    const audioUrl = 'https://files.catbox.moe/sc2tlj.mp3'; // ✅ your audio
+    const audioUrl = 'https://files.catbox.moe/sc2tlj.mp3';
     try {
         await sock.sendMessage(chatId, {
             audio: { url: audioUrl },
@@ -138,10 +146,10 @@ const menuHandler = async (sock, chatId, m) => {
     const nextIndex = (currentIndex + 1) % MENU_IMAGES.length;
     userImageIndex.set(senderId, nextIndex);
 
-    // Generate smart caption (menu + info + footer)
+    // Generate caption with "Read more"
     const caption = getSmartMenuCaption(pushname, mention, ping, ramBar, ramPercent, runtime, version, totalCommands);
 
-    // Send image with caption (all in one message)
+    // Send image with caption
     try {
         await sock.sendMessage(chatId, {
             image: { url: currentImageUrl },
@@ -150,7 +158,6 @@ const menuHandler = async (sock, chatId, m) => {
         }, { quoted: m });
     } catch (err) {
         console.error('Menu image send failed:', err.message);
-        // Fallback: send only text
         await sock.sendMessage(chatId, { text: caption, mentions: [senderId] }, { quoted: m });
     }
 
