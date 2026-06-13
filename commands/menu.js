@@ -98,7 +98,7 @@ l  .menu-all
 📸 Dynamic menu images
 > script 📃 under construction 🚧
 
- '© bigmanj tech ™ with ♥︎',
+© BIGMANJ BOT V3.0.0 – by bigmanj tech
     `.trim();
 
     const readMoreTrigger = getReadMoreTrigger();
