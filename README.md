@@ -1,6 +1,6 @@
 ## ʙɪɢᴍᴀɴᴊ ʙᴏᴛ ᴠ3
 
-<img src="https://files.catbox.moe/qw66gv.jpg" width="80" align="right"/>
+<img src="https://files.catbox.moe/uii8bi.jpg" width="80" align="right"/>
 
 Get your **BIGMANJ BOT V3** running in seconds with exclusive, high-speed deployment options used by pro developers worldwide.
 
