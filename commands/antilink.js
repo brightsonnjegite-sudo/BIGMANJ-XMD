@@ -36,7 +36,6 @@ ${FOOTER}`;
                     await sock.sendMessage(chatId, { text: '*_Antilink is already ON💀_*\n' + FOOTER }, { quoted: message });
                     return;
                 }
-                // Default action = delete (quiet)
                 const result = await setAntilink(chatId, 'on', 'delete');
                 await sock.sendMessage(chatId, { 
                     text: result ? '* _🔗NO LINKS ALLOWED HERE💀 (quiet delete mode)_*\n' + FOOTER : '*_Failed to turn ON Antilink_*\n' + FOOTER 
@@ -117,7 +116,6 @@ async function handleLinkDetection(sock, chatId, message, userMessage, senderId)
         return;
     }
     else if (action === 'warn') {
-        // Strong fear warning (delete + warn)
         const warnMsg = `🚫 *🔥 ANTILINK WARNING 🔥*\n\n` +
             `@${mention} you have posted a forbidden link!\n\n` +
             `😨 *This is your ONLY warning.* Next violation will get you REMOVED from the group.\n\n` +
@@ -126,7 +124,6 @@ async function handleLinkDetection(sock, chatId, message, userMessage, senderId)
         await sock.sendMessage(chatId, { text: warnMsg, mentions: [senderId] });
     }
     else if (action === 'remove') {
-        // Delete + warn + kick immediately
         const kickMsg = `💀 *YOU HAVE BEEN REMOVED* 💀\n\n` +
             `@${mention} you ignored our warning and posted a forbidden link.\n\n` +
             `😈 *Bigmanj Antilink* does not tolerate rule breaking.\n\n` +
@@ -138,7 +135,8 @@ async function handleLinkDetection(sock, chatId, message, userMessage, senderId)
             console.log(`Kicked ${senderId} for posting link`);
         } catch (err) {
             console.error('Failed to kick user:', err);
-            await sock.sendMessage(chatId, { text: `❌ Failed to remove user. Make sure bot is admin.\n${FOOTER}` });
+            // Instead of "Make sure bot is admin", use the custom message:
+            await sock.sendMessage(chatId, { text: `Be an admin 😁 first 🥇 then antilink as security will perfect run to deal 🤝 with all links in groups send by not admin users!\n${FOOTER}` });
         }
     }
 }
