@@ -1,6 +1,20 @@
 const moment = require('moment-timezone');
 
-const getMentionNumber = (jid) => jid.split('@')[0];
+// Picha za main menu (zile zile 9)
+const MENU_IMAGES = [
+    'https://files.catbox.moe/uii8bi.jpg',
+    'https://files.catbox.moe/69csjf.jpg',
+    'https://files.catbox.moe/69csjf.jpg',
+    'https://files.catbox.moe/wz28nv.jpg',
+    'https://files.catbox.moe/07brl4.jpg',
+    'https://files.catbox.moe/uii8bi.jpg',
+    'https://files.catbox.moe/dhl8dp.jpg',
+    'https://files.catbox.moe/n6adzs.jpg',
+    'https://files.catbox.moe/gom02i.jpg'
+];
+
+// Hifadhi index ya picha kwa kila mtumiaji
+const userImageIndex = new Map();
 
 const getGreeting = () => {
     const hour = moment().tz('Africa/Dar_es_Salaam').hour();
@@ -13,7 +27,7 @@ const handler = async (sock, chatId, m) => {
     const senderId = m.key.participant || m.key.remoteJid;
     const pushname = m.pushName || "User";
     const greeting = getGreeting();
-    
+
     // Orodha ya commands
     const commands = [
         '.toimg', '.autourl', '.audiourl', '.url', '.tourl', '.getcode',
@@ -30,13 +44,22 @@ const handler = async (sock, chatId, m) => {
         const letter = alphabet[i] || (i + 1);
         caption += `${letter}. ${commands[i]}\n`;
     }
-    caption += `\n💡 Useful tools for daily tasks.\n🚀 *BIGMANJ BOT V3* — Fast • Powerful • Reliable\n\n© bigmanj tech ™ with ♥︎`;
+    caption += `\n💡 Useful tools for daily tasks.\n🚀 *BIGMANj MD* — Fast • Powerful • Reliable\n\n© bigmanj tech ™ with ♥︎`;
 
-    await sock.sendMessage(chatId, { 
-        text: caption, 
+    // Pata picha inayozunguka kwa mtumiaji huyu
+    let currentIndex = userImageIndex.get(senderId) || 0;
+    const currentImageUrl = MENU_IMAGES[currentIndex];
+    const nextIndex = (currentIndex + 1) % MENU_IMAGES.length;
+    userImageIndex.set(senderId, nextIndex);
+
+    // Tuma picha pamoja na caption
+    await sock.sendMessage(chatId, {
+        image: { url: currentImageUrl },
+        caption: caption,
         mentions: [senderId]
     }, { quoted: m });
-    
+
+    // Tuma reaction
     await sock.sendMessage(chatId, { react: { text: '🔧', key: m.key } });
 };
 
