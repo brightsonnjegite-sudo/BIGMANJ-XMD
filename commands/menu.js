@@ -98,8 +98,8 @@ l  .menu-all
 📸 Dynamic menu images
 > script 📃 under construction 🚧
 
-© bigmanj tech ™ with ♥︎
-    `.trim();
+footer: '© bigmanj tech ™ with ♥︎'
+    .trim();
 
     const readMoreTrigger = getReadMoreTrigger();
     return `${visiblePart}${readMoreTrigger}${hiddenPart}`;
