@@ -47,14 +47,8 @@ const userImageIndex = new Map();
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// --------------------- ADD FOOTER (like Discord embed) ---------------------
-function addFooterToMessage(text, footerText = '© bigmanj tech ™ with ♥︎') {
-    return `${text}\n\n${footerText}`;
-}
-
 // --------------------- FORCE "READ MORE" WITH ZERO-WIDTH SPACES ---------------------
 function getReadMoreTrigger() {
-    // 10,000 invisible characters force WhatsApp to create a "Read more" link
     return '\u200b'.repeat(10000);
 }
 
@@ -65,38 +59,36 @@ function getSmartMenuCaption(pushname, mention, ping, ramBar, ramPercent, runtim
 
     // --- VISIBLE PART (Bot info & Owner) ---
     const visiblePart = `
-     〔 *BIGMANJ BOT V3* 〕
+    〔 *🌟 BIGMANJ BOT V3* 〕
  ${getGreeting()} @${mention} (${pushname})
 
- |        🤖 *BOT INFO*
- | 🚀 Ping      : ${ping}ms
- | 💾 RAM       : ${ramBar} ${ramPercent}%
- | ⏱️ Uptime    : ${runtime}
- | 📦 Version   : ${version}
- | 📚 Commands  : ${totalCommands}
+         🤖 *BOT INFO*
+     🚀 Ping      : ${ping}ms
+     💾 RAM       : ${ramBar} ${ramPercent}%
+     ⏱️ Uptime    : ${runtime}
+     📦 Version   : ${version}
+     📚 Commands  : ${totalCommands}
 
           👑 *OWNER*
-  💀 name: ${ownerName}
-  📱 phone: wa.me/${ownerNumber}
+    💀 name: ${ownerName}
+    📱 phone: wa.me/${ownerNumber}
     `.trim();
 
-    // --- HIDDEN PART (Mini menus listed with letters a-l, no backticks) ---
-    const hiddenPartRaw = `
-          
-           📋 *MINI MENUS*
-👥 .menu-general
-👥 .menu-group
-🛡️ .menu-security
-🧠 .menu-ai
-📥 .menu-download
-✨ .menu-effects
-👑 .menu-owner
-⚙️ .menu-settings
-🔧 .menu-tools
-🎮 .menu-fun
-🤖 .menu-automation
-📚 .menu-all
-  
+    // --- HIDDEN PART (Mini menus, Features, Footer) ---
+    const hiddenPart = `
+          📋 *MINI MENUS*
+a  .menu-general
+b  .menu-group
+c  .menu-security
+d  .menu-ai
+e  .menu-download
+f  .menu-effects
+g  .menu-owner
+h  .menu-settings
+i  .menu-tools
+j  .menu-fun
+k  .menu-automation
+l  .menu-all
 
          ✨ *FEATURES*
 🔐 Russian Cyber Security Mode
@@ -104,21 +96,18 @@ function getSmartMenuCaption(pushname, mention, ping, ramBar, ramPercent, runtim
 🌑 Dark Futuristic UI
 🎵 MP3 audio & voice tools
 📸 Dynamic menu images
-> script 📃 is under construction 🚧
+> script 📃 under construction 🚧
+
+© bigmanj tech ™ with ♥︎
     `.trim();
 
-    // Add footer to hidden part
-    const hiddenPart = Footer: '© bigmanj tech ™ with ♥︎');
-    
-    // Invisible trigger to force "Read more"
     const readMoreTrigger = getReadMoreTrigger();
-
     return `${visiblePart}${readMoreTrigger}${hiddenPart}`;
 }
 
 // --------------------- Send MP3 audio (normal, not voice note) ---------------------
 async function sendMp3Audio(sock, chatId, quotedMsg) {
-    const audioUrl = 'https://files.catbox.moe/dvnn2a.mp3';
+    const audioUrl = 'https://files.catbox.moe/sc2tlj.mp3';
     try {
         await sock.sendMessage(chatId, {
             audio: { url: audioUrl },
