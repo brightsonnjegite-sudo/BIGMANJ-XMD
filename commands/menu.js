@@ -65,25 +65,25 @@ function getSmartMenuCaption(pushname, mention, ping, ramBar, ramPercent, runtim
 
     // --- VISIBLE PART (Bot info & Owner) ---
     const visiblePart = `
-    〔 *🌟 BIGMANJ BOT V3* 〕
+     〔 *BIGMANJ BOT V3* 〕
  ${getGreeting()} @${mention} (${pushname})
 
  |        🤖 *BOT INFO*
- |    🚀 Ping      : ${ping}ms
- |    💾 RAM       : ${ramBar} ${ramPercent}%
- |    ⏱️ Uptime    : ${runtime}
- |    📦 Version   : ${version}
- |    📚 Commands  : ${totalCommands}
+ | 🚀 Ping      : ${ping}ms
+ | 💾 RAM       : ${ramBar} ${ramPercent}%
+ | ⏱️ Uptime    : ${runtime}
+ | 📦 Version   : ${version}
+ | 📚 Commands  : ${totalCommands}
 
           👑 *OWNER*
-    💀 name: ${ownerName}
-    📱 phone: wa.me/${ownerNumber}
+  💀 name: ${ownerName}
+  📱 phone: wa.me/${ownerNumber}
     `.trim();
 
     // --- HIDDEN PART (Mini menus listed with letters a-l, no backticks) ---
     const hiddenPartRaw = `
           
-        📋 *MINI MENUS*
+           📋 *MINI MENUS*
 a  .menu-general
 b  .menu-group
 c  .menu-security
