@@ -1,34 +1,29 @@
 // commands/goodbye.js
+const fs = require('fs');
+const path = require('path');
 const moment = require('moment-timezone');
 
-/**
- * Get group profile picture (returns buffer or null)
- */
+const goodbyeSettingsFile = path.join(process.cwd(), 'data', 'goodbye_settings.json');
+
+function isGoodbyeEnabled(groupJid) {
+    if (!fs.existsSync(goodbyeSettingsFile)) return true;
+    try {
+        const data = JSON.parse(fs.readFileSync(goodbyeSettingsFile));
+        return data[groupJid] !== false;
+    } catch {
+        return true;
+    }
+}
+
 async function getGroupProfilePicture(sock, groupJid) {
     try {
         const ppUrl = await sock.profilePictureUrl(groupJid, 'image');
         const response = await fetch(ppUrl);
-        if (response.ok) {
-            return Buffer.from(await response.arrayBuffer());
-        }
-    } catch (err) {
-        // No profile picture – ignore
-    }
+        if (response.ok) return Buffer.from(await response.arrayBuffer());
+    } catch (err) {}
     return null;
 }
 
-/**
- * Format group description (limit length)
- */
-function formatDescription(desc) {
-    if (!desc) return 'No description set.';
-    if (desc.length > 200) return desc.slice(0, 200) + '...';
-    return desc;
-}
-
-/**
- * Get sad time‑based greeting
- */
 function getSadGreeting() {
     const hour = moment().tz('Africa/Dar_es_Salaam').hour();
     if (hour >= 5 && hour < 12) return '🌧️ Asubuhi ya kusikitisha';
@@ -36,85 +31,42 @@ function getSadGreeting() {
     return '🌙 Usiku wa machozi';
 }
 
-/**
- * Main goodbye handler – to be called from group-participants.update event
- * Detects if user left voluntarily or was kicked by an admin.
- */
 async function handleGroupGoodbye(sock, update) {
     try {
         const { id: groupJid, participants, action, author } = update;
-        if (action !== 'remove') return; // only care when members are removed
+        if (action !== 'remove') return;
+        if (!isGoodbyeEnabled(groupJid)) return;
 
-        // Get group metadata (before removal? But participants list is already updated)
-        // We'll fetch fresh metadata to get current member count after removal
         const groupMetadata = await sock.groupMetadata(groupJid);
         const groupName = groupMetadata.subject || 'Group';
         const groupDesc = groupMetadata.desc || '';
-        const memberCount = groupMetadata.participants.length; // after removal
-
-        const formattedDesc = formatDescription(groupDesc);
+        const memberCount = groupMetadata.participants.length;
+        const groupPic = await getGroupProfilePicture(sock, groupJid);
         const sadGreeting = getSadGreeting();
 
-        // Get group profile picture (optional)
-        const groupPicBuffer = await getGroupProfilePicture(sock, groupJid);
-
-        // Send goodbye message for each leaving participant
         for (const participant of participants) {
-            const participantJid = participant;
-            const participantNumber = participantJid.split('@')[0];
-            const authorNumber = author ? author.split('@')[0] : null;
-
-            // Determine if kicked or self‑leave
-            const isKicked = author && author !== participantJid;
-            let reasonText = '';
-            let extraEmoji = '';
-
-            if (isKicked) {
-                reasonText = `🚫 *Imefutwa na admin:* @${authorNumber}`;
-                extraEmoji = '⚡😔';
-            } else {
-                reasonText = `🍃 *Ameondoka kwa hiari yake*`;
-                extraEmoji = '💔🥀';
-            }
-
-            // Build sad caption
+            const participantNumber = participant.split('@')[0];
+            const isKicked = author && author !== participant;
+            const reasonText = isKicked ? `🚫 *Imefutwa na admin:* @${author.split('@')[0]}` : `🍃 *Ameondoka kwa hiari yake*`;
+            const extraEmoji = isKicked ? '⚡😔' : '💔🥀';
             const caption = `${sadGreeting} @${participantNumber}\n\n` +
                 `${extraEmoji} *TUTAKUKUMBUKA ${groupName}* ${extraEmoji}\n\n` +
-                `📋 *Group description:*\n${formattedDesc}\n\n` +
+                `📋 *Group description:*\n${groupDesc.slice(0, 200)}${groupDesc.length > 200 ? '...' : ''}\n\n` +
                 `👥 *Members remaining:* ${memberCount}\n\n` +
                 `${reasonText}\n\n` +
                 `🍃 Kwaheri rafiki. Tuta miss uwepo wako.\n\n` +
                 `© bigmanj tech ™ with ♥︎`;
-
-            if (groupPicBuffer) {
-                // Send image + caption
-                await sock.sendMessage(groupJid, {
-                    image: groupPicBuffer,
-                    caption: caption,
-                    mentions: [participantJid, author].filter(Boolean)
-                });
+            const mentions = [participant];
+            if (author && author !== participant) mentions.push(author);
+            if (groupPic) {
+                await sock.sendMessage(groupJid, { image: groupPic, caption, mentions });
             } else {
-                // Fallback text box
-                const fallbackMsg = `╭━━〔 *💔 GOODBYE ${groupName}* 〕━━⬣\n` +
-                    `┃ ${sadGreeting} @${participantNumber}\n` +
-                    `┃\n` +
-                    `┃ 📋 *Description:* ${formattedDesc}\n` +
-                    `┃ 👥 *Members left:* ${memberCount}\n` +
-                    `┃\n` +
-                    `┃ ${reasonText}\n` +
-                    `┃\n` +
-                    `┃ 🥀 Tuta miss uwepo wako.\n` +
-                    `┃ 🍃 Kwaheri rafiki.\n` +
-                    `╰━━━━━━━━━━━━━━━━━━━━━━⬣\n\n` +
-                    `© bigmanj tech ™ with ♥︎`;
-                await sock.sendMessage(groupJid, {
-                    text: fallbackMsg,
-                    mentions: [participantJid, author].filter(Boolean)
-                });
+                const fallback = `╭━━〔 *💔 GOODBYE ${groupName}* 〕━━⬣\n┃ ${sadGreeting} @${participantNumber}\n┃\n┃ 📋 *Description:* ${groupDesc.slice(0, 150)}...\n┃ 👥 *Members left:* ${memberCount}\n┃\n┃ ${reasonText}\n┃\n┃ 🥀 Tuta miss uwepo wako.\n┃ 🍃 Kwaheri rafiki.\n╰━━━━━━━━━━━━━━━━━━━━━━⬣\n\n© bigmanj tech ™ with ♥︎`;
+                await sock.sendMessage(groupJid, { text: fallback, mentions });
             }
         }
     } catch (err) {
-        console.error('Goodbye handler error:', err);
+        console.error('Goodbye error:', err);
     }
 }
 
