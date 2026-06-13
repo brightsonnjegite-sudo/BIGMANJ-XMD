@@ -1,5 +1,5 @@
 /**
- *📡 BIGMANJ BOT V3 - COMPLETE MAIN HANDLER
+ * BIGMANJ BOT V3 - COMPLETE MAIN HANDLER
  * Includes: all original commands + welcome/goodbye toggle + event handlers
  */
 
@@ -151,7 +151,7 @@ const menuFun = require('./commands/menu-fun');
 const menuAutomation = require('./commands/menu-automation');
 const menuAll = require('./commands/menu-all');
 
-// ========== WELCOME / GOODBYE TOGGLE SETTINGS & HANDLERS ==========
+// ========== WELCOME / GOODBYE EVENT HANDLERS ==========
 const moment = require('moment-timezone');
 
 const welcomeSettingsFile = path.join(process.cwd(), 'data', 'welcome_settings.json');
@@ -264,45 +264,48 @@ async function handleGroupGoodbye(sock, update) {
     } catch (err) { console.error('Goodbye error:', err); }
 }
 
-async function toggleWelcomeCommand(sock, chatId, message, args) {
+// ========== TOGGLE COMMANDS ==========
+async function toggleWelcome(sock, chatId, message, args) {
     if (!chatId.endsWith('@g.us')) {
         await sock.sendMessage(chatId, { text: '❌ Command hii inafanya kazi kwenye vikundi tu.' }, { quoted: message });
         return;
     }
-    const settings = loadWelcomeSettings();
-    const current = settings[chatId] !== false;
+    let settings = {};
+    if (fs.existsSync(welcomeSettingsFile)) settings = JSON.parse(fs.readFileSync(welcomeSettingsFile));
     const action = args[0]?.toLowerCase();
     if (action === 'on') {
         settings[chatId] = true;
-        saveWelcomeSettings(settings);
+        fs.writeFileSync(welcomeSettingsFile, JSON.stringify(settings, null, 2));
         await sock.sendMessage(chatId, { text: '✅ Welcome messages *imewashwa* kwa kikundi hiki.\n© bigmanj tech ™ with ♥︎' }, { quoted: message });
     } else if (action === 'off') {
         settings[chatId] = false;
-        saveWelcomeSettings(settings);
+        fs.writeFileSync(welcomeSettingsFile, JSON.stringify(settings, null, 2));
         await sock.sendMessage(chatId, { text: '❌ Welcome messages *imezimwa* kwa kikundi hiki.\n© bigmanj tech ™ with ♥︎' }, { quoted: message });
     } else {
-        await sock.sendMessage(chatId, { text: `🔔 Welcome messages ni *${current ? 'imewashwa' : 'imezimwa'}*.\nTumia: .welcome on / .welcome off\n© bigmanj tech ™ with ♥︎` }, { quoted: message });
+        const status = settings[chatId] === false ? 'imezimwa' : 'imewashwa';
+        await sock.sendMessage(chatId, { text: `🔔 Welcome messages ni *${status}*.\nTumia: .welcome on / .welcome off\n© bigmanj tech ™ with ♥︎` }, { quoted: message });
     }
 }
 
-async function toggleGoodbyeCommand(sock, chatId, message, args) {
+async function toggleGoodbye(sock, chatId, message, args) {
     if (!chatId.endsWith('@g.us')) {
         await sock.sendMessage(chatId, { text: '❌ Command hii inafanya kazi kwenye vikundi tu.' }, { quoted: message });
         return;
     }
-    const settings = loadGoodbyeSettings();
-    const current = settings[chatId] !== false;
+    let settings = {};
+    if (fs.existsSync(goodbyeSettingsFile)) settings = JSON.parse(fs.readFileSync(goodbyeSettingsFile));
     const action = args[0]?.toLowerCase();
     if (action === 'on') {
         settings[chatId] = true;
-        saveGoodbyeSettings(settings);
+        fs.writeFileSync(goodbyeSettingsFile, JSON.stringify(settings, null, 2));
         await sock.sendMessage(chatId, { text: '✅ Goodbye messages *imewashwa* kwa kikundi hiki.\n© bigmanj tech ™ with ♥︎' }, { quoted: message });
     } else if (action === 'off') {
         settings[chatId] = false;
-        saveGoodbyeSettings(settings);
+        fs.writeFileSync(goodbyeSettingsFile, JSON.stringify(settings, null, 2));
         await sock.sendMessage(chatId, { text: '❌ Goodbye messages *imezimwa* kwa kikundi hiki.\n© bigmanj tech ™ with ♥︎' }, { quoted: message });
     } else {
-        await sock.sendMessage(chatId, { text: `🔔 Goodbye messages ni *${current ? 'imewashwa' : 'imezimwa'}*.\nTumia: .goodbye on / .goodbye off\n© bigmanj tech ™ with ♥︎` }, { quoted: message });
+        const status = settings[chatId] === false ? 'imezimwa' : 'imewashwa';
+        await sock.sendMessage(chatId, { text: `🔔 Goodbye messages ni *${status}*.\nTumia: .goodbye on / .goodbye off\n© bigmanj tech ™ with ♥︎` }, { quoted: message });
     }
 }
 
@@ -429,7 +432,7 @@ async function handleStatus(sock, messageUpdate) {
     } catch(e) { console.error(e); }
 }
 
-// ========== MESSAGE HANDLER (with full switch) ==========
+// ========== MAIN MESSAGE HANDLER ==========
 async function handleMessages(sock, messageUpdate, printLog) {
     try {
         const { messages, type } = messageUpdate;
@@ -572,7 +575,7 @@ async function handleMessages(sock, messageUpdate, printLog) {
             } catch(e) {}
         }
 
-        // ========== THE BIG SWITCH (all your commands + new toggles) ==========
+        // ========== THE BIG SWITCH ==========
         switch (true) {
             case userMessage === '.menu-general':
                 await menuGeneral(sock, chatId, message);
@@ -611,15 +614,15 @@ async function handleMessages(sock, messageUpdate, printLog) {
                 await menuAll(sock, chatId, message);
                 commandExecuted = true; break;
 
-            // New toggle commands
+            // Welcome / Goodbye toggle commands
             case userMessage === '.welcome':
-                await toggleWelcomeCommand(sock, chatId, message, rawText.split(' ').slice(1));
+                await toggleWelcome(sock, chatId, message, rawText.split(' ').slice(1));
                 commandExecuted = true; break;
             case userMessage === '.goodbye':
-                await toggleGoodbyeCommand(sock, chatId, message, rawText.split(' ').slice(1));
+                await toggleGoodbye(sock, chatId, message, rawText.split(' ').slice(1));
                 commandExecuted = true; break;
 
-            // ========== ALL YOUR ORIGINAL COMMANDS (keep as they were) ==========
+            // ========== ALL YOUR ORIGINAL COMMANDS ==========
             case userMessage.startsWith('.add'):
                 const addArgs = userMessage.trim().split(/\s+/);
                 const phoneNumber = addArgs.slice(1).join(' ').trim();
