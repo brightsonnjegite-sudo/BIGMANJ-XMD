@@ -47,12 +47,17 @@ const userImageIndex = new Map();
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// --------------------- NEW: SMART MENU WITH READ MORE ---------------------
+// --------------------- CREATE "READ MORE" USING ZERO-WIDTH SPACES ---------------------
+function getReadMoreTrigger() {
+    // Zero-width spaces (invisible) – 5000 characters will force WhatsApp to truncate
+    return '\u200b'.repeat(5000);
+}
+
 function getSmartMenuCaption(pushname, mention, ping, ramBar, ramPercent, runtime, version, totalCommands) {
     const ownerNumber = "255777580820";
     const ownerName = "bigmanj tech";
 
-    // SEHEMU INAYOONEKANA (juu) – BOT INFO + OWNER
+    // SEHEMU INAYOONEKANA (visible part) – BOT INFO + OWNER
     const visiblePart = `
 ╭━━〔 *🌟 BIGMANJ BOT V3* 〕━━⬣
 ┃ ${getGreeting()} @${mention} (${pushname})
@@ -69,7 +74,7 @@ function getSmartMenuCaption(pushname, mention, ping, ramBar, ramPercent, runtim
 ┃ Phone : wa.me/${ownerNumber}
     `.trim();
 
-    // SEHEMU ILIYOFICHWA (read more) – MINI MENUS + FEATURES + FOOTER
+    // SEHEMU ILIYOFICHWA (hidden behind "Read more") – MINI MENUS + FEATURES + FOOTER
     const hiddenPart = `
 📋 *MINI MENUS*
 ▸ \`.menu-general\`
@@ -97,10 +102,11 @@ function getSmartMenuCaption(pushname, mention, ping, ramBar, ramPercent, runtim
 © bigmanj tech ™ with ♥︎
     `.trim();
 
-    // Mistari 20 ya kuficha (inayosababisha "Read more")
-    const readMoreBreaks = '\n'.repeat(20);
+    // Ongeza herufi zisizoonekana nyingi ili kulazimisha "Read more"
+    const readMoreTrigger = getReadMoreTrigger();
     
-    return `${visiblePart}${readMoreBreaks}${hiddenPart}`;
+    // Unganisha: visible + invisible trigger + hidden
+    return `${visiblePart}${readMoreTrigger}${hiddenPart}`;
 }
 
 // --------------------- Send MP3 audio ---------------------
@@ -146,7 +152,7 @@ const menuHandler = async (sock, chatId, m) => {
     const nextIndex = (currentIndex + 1) % MENU_IMAGES.length;
     userImageIndex.set(senderId, nextIndex);
 
-    // Generate caption with "Read more"
+    // Generate caption with "Read more" (using zero-width spaces)
     const caption = getSmartMenuCaption(pushname, mention, ping, ramBar, ramPercent, runtime, version, totalCommands);
 
     // Send image with caption
@@ -158,6 +164,7 @@ const menuHandler = async (sock, chatId, m) => {
         }, { quoted: m });
     } catch (err) {
         console.error('Menu image send failed:', err.message);
+        // Fallback: send only text
         await sock.sendMessage(chatId, { text: caption, mentions: [senderId] }, { quoted: m });
     }
 
