@@ -1,34 +1,27 @@
 /**
- * 🤖 MICKEY GLITCH - MAIN HANDLER WITH MANUAL IMPORTS ONLY
- * Clean & Optimized Version - No Auto-Loading
+ * MICKEY GLITCH- MAIN HANDLER
+ * Complete with Welcome/Goodbye Toggle Commands & Event Handlers
  */
 
-// 🧹 Fix for ENOSPC / temp overflow in hosted panels
+// 🧹 Fix for ENOSPC / temp overflow
 const fs = require('fs');
 const path = require('path');
 
-// Redirect temp storage away from system /tmp
 const customTemp = path.join(process.cwd(), 'temp');
 const customTmp = path.join(process.cwd(), 'tmp');
-
 if (!fs.existsSync(customTemp)) fs.mkdirSync(customTemp, { recursive: true });
 if (!fs.existsSync(customTmp)) fs.mkdirSync(customTmp, { recursive: true });
-
 process.env.TMPDIR = customTemp;
 process.env.TEMP = customTemp;
 process.env.TMP = customTemp;
 
-// Aggressive temp cleanup every 2 minutes
 setInterval(() => {
-  const foldersToClean = [customTemp, customTmp];
-  foldersToClean.forEach(folder => {
+  [customTemp, customTmp].forEach(folder => {
     fs.readdir(folder, (err, files) => {
       if (err) return;
       files.forEach(file => {
         const filePath = path.join(folder, file);
-        try {
-          fs.rmSync(filePath, { recursive: true, force: true });
-        } catch (e) {}
+        try { fs.rmSync(filePath, { recursive: true, force: true }); } catch(e) {}
       });
     });
   });
@@ -37,7 +30,7 @@ setInterval(() => {
 const settings = require('./settings');
 require('./config.js');
 
-// MANUAL IMPORTS
+// ========== ALL IMPORTS (as in original working bot) ==========
 const { isBanned } = require('./lib/isBanned');
 const yts = require('yt-search');
 const { fetchBuffer } = require('./lib/myfunc');
@@ -51,7 +44,6 @@ const { autotypingCommand, isAutotypingEnabled, handleAutotypingForMessage, hand
 const { autoreadCommand, isAutoreadEnabled, handleAutoread } = require('./commands/autoread');
 const { autoBioCommand } = require('./commands/autobio');
 
-// Command imports (existing)
 const tagAllCommand = require('./commands/tagall');
 const helpCommand = require('./commands/menu');
 const banCommand = require('./commands/ban');
@@ -146,7 +138,6 @@ const { antibotCommand, handleAntiBotCheck } = require('./commands/antibot');
 const mylveCommand = require('./commands/mylve');
 const autourlCommand = require('./commands/autourl');
 
-// ========== SUBMENU IMPORTS ==========
 const menuGeneral = require('./commands/menu-general');
 const menuGroup = require('./commands/menu-group');
 const menuSecurity = require('./commands/menu-security');
@@ -160,22 +151,168 @@ const menuFun = require('./commands/menu-fun');
 const menuAutomation = require('./commands/menu-automation');
 const menuAll = require('./commands/menu-all');
 
-// ========== WELCOME & GOODBYE TOGGLE COMMANDS ==========
-const toggleWelcomeCommand = require('./commands/togglewelcome');
-const toggleGoodbyeCommand = require('./commands/togglegoodbye');
+// ========== WELCOME / GOODBYE SETTINGS & HANDLERS (built-in) ==========
+const moment = require('moment-timezone');
 
-// ========== WELCOME & GOODBYE EVENT HANDLERS ==========
-const { handleGroupWelcome } = require('./commands/welcome');
-const { handleGroupGoodbye } = require('./commands/goodbye');
+const welcomeSettingsFile = path.join(process.cwd(), 'data', 'welcome_settings.json');
+const goodbyeSettingsFile = path.join(process.cwd(), 'data', 'goodbye_settings.json');
 
-// Global settings
+function loadWelcomeSettings() {
+    if (!fs.existsSync(welcomeSettingsFile)) return {};
+    try { return JSON.parse(fs.readFileSync(welcomeSettingsFile)); } catch { return {}; }
+}
+function saveWelcomeSettings(settings) {
+    fs.writeFileSync(welcomeSettingsFile, JSON.stringify(settings, null, 2));
+}
+function loadGoodbyeSettings() {
+    if (!fs.existsSync(goodbyeSettingsFile)) return {};
+    try { return JSON.parse(fs.readFileSync(goodbyeSettingsFile)); } catch { return {}; }
+}
+function saveGoodbyeSettings(settings) {
+    fs.writeFileSync(goodbyeSettingsFile, JSON.stringify(settings, null, 2));
+}
+
+async function getGroupProfilePicture(sock, groupJid) {
+    try {
+        const ppUrl = await sock.profilePictureUrl(groupJid, 'image');
+        const response = await fetch(ppUrl);
+        if (response.ok) return Buffer.from(await response.arrayBuffer());
+    } catch (err) {}
+    return null;
+}
+
+function getGreeting() {
+    const hour = moment().tz('Africa/Dar_es_Salaam').hour();
+    if (hour >= 5 && hour < 12) return '🌅 Habari za Asubuhi';
+    if (hour >= 12 && hour < 18) return '🌤️ Habari za Mchana';
+    return '🌙 Habari za Jioni';
+}
+function getSadGreeting() {
+    const hour = moment().tz('Africa/Dar_es_Salaam').hour();
+    if (hour >= 5 && hour < 12) return '🌧️ Asubuhi ya kusikitisha';
+    if (hour >= 12 && hour < 18) return '☁️ Mchana wa huzuni';
+    return '🌙 Usiku wa machozi';
+}
+
+async function handleGroupWelcome(sock, update) {
+    try {
+        const { id: groupJid, participants, action } = update;
+        if (action !== 'add') return;
+        const settings = loadWelcomeSettings();
+        if (settings[groupJid] === false) return;
+
+        const groupMetadata = await sock.groupMetadata(groupJid);
+        const groupName = groupMetadata.subject || 'Group';
+        const groupDesc = groupMetadata.desc || '';
+        const memberCount = groupMetadata.participants.length;
+        const groupPic = await getGroupProfilePicture(sock, groupJid);
+        const greeting = getGreeting();
+
+        for (const participant of participants) {
+            const participantNumber = participant.split('@')[0];
+            const caption = `${greeting} @${participantNumber}\n\n` +
+                `👋 *KARIBU ${groupName}*\n\n` +
+                `📋 *Group description:*\n${groupDesc.slice(0, 200)}${groupDesc.length > 200 ? '...' : ''}\n\n` +
+                `👥 *Total members:* ${memberCount}\n\n` +
+                `🔰 Please read group rules and enjoy.\n\n` +
+                `© bigmanj tech ™ with ♥︎`;
+            if (groupPic) {
+                await sock.sendMessage(groupJid, { image: groupPic, caption, mentions: [participant] });
+            } else {
+                const fallback = `╭━━〔 *🎉 WELCOME ${groupName}* 〕━━⬣\n┃ ${greeting} @${participantNumber}\n┃\n┃ 📋 *Description:* ${groupDesc.slice(0, 150)}...\n┃ 👥 *Members:* ${memberCount}\n┃\n┃ 🔰 Karibu sana!\n╰━━━━━━━━━━━━━━━━━━━━━━⬣\n\n© bigmanj tech ™ with ♥︎`;
+                await sock.sendMessage(groupJid, { text: fallback, mentions: [participant] });
+            }
+        }
+    } catch (err) { console.error('Welcome error:', err); }
+}
+
+async function handleGroupGoodbye(sock, update) {
+    try {
+        const { id: groupJid, participants, action, author } = update;
+        if (action !== 'remove') return;
+        const settings = loadGoodbyeSettings();
+        if (settings[groupJid] === false) return;
+
+        const groupMetadata = await sock.groupMetadata(groupJid);
+        const groupName = groupMetadata.subject || 'Group';
+        const groupDesc = groupMetadata.desc || '';
+        const memberCount = groupMetadata.participants.length;
+        const groupPic = await getGroupProfilePicture(sock, groupJid);
+        const sadGreeting = getSadGreeting();
+
+        for (const participant of participants) {
+            const participantNumber = participant.split('@')[0];
+            const isKicked = author && author !== participant;
+            const reasonText = isKicked ? `🚫 *Imefutwa na admin:* @${author.split('@')[0]}` : `🍃 *Ameondoka kwa hiari yake*`;
+            const extraEmoji = isKicked ? '⚡😔' : '💔🥀';
+            const caption = `${sadGreeting} @${participantNumber}\n\n` +
+                `${extraEmoji} *TUTAKUKUMBUKA ${groupName}* ${extraEmoji}\n\n` +
+                `📋 *Group description:*\n${groupDesc.slice(0, 200)}${groupDesc.length > 200 ? '...' : ''}\n\n` +
+                `👥 *Members remaining:* ${memberCount}\n\n` +
+                `${reasonText}\n\n` +
+                `🍃 Kwaheri rafiki. Tuta miss uwepo wako.\n\n` +
+                `© bigmanj tech ™ with ♥︎`;
+            const mentions = [participant];
+            if (author && author !== participant) mentions.push(author);
+            if (groupPic) {
+                await sock.sendMessage(groupJid, { image: groupPic, caption, mentions });
+            } else {
+                const fallback = `╭━━〔 *💔 GOODBYE ${groupName}* 〕━━⬣\n┃ ${sadGreeting} @${participantNumber}\n┃\n┃ 📋 *Description:* ${groupDesc.slice(0, 150)}...\n┃ 👥 *Members left:* ${memberCount}\n┃\n┃ ${reasonText}\n┃\n┃ 🥀 Tuta miss uwepo wako.\n┃ 🍃 Kwaheri rafiki.\n╰━━━━━━━━━━━━━━━━━━━━━━⬣\n\n© bigmanj tech ™ with ♥︎`;
+                await sock.sendMessage(groupJid, { text: fallback, mentions });
+            }
+        }
+    } catch (err) { console.error('Goodbye error:', err); }
+}
+
+async function toggleWelcomeCommand(sock, chatId, message, args) {
+    if (!chatId.endsWith('@g.us')) {
+        await sock.sendMessage(chatId, { text: '❌ Command hii inafanya kazi kwenye vikundi tu.' }, { quoted: message });
+        return;
+    }
+    const settings = loadWelcomeSettings();
+    const current = settings[chatId] !== false;
+    const action = args[0]?.toLowerCase();
+    if (action === 'on') {
+        settings[chatId] = true;
+        saveWelcomeSettings(settings);
+        await sock.sendMessage(chatId, { text: '✅ Welcome messages *imewashwa* kwa kikundi hiki.\n© bigmanj tech ™ with ♥︎' }, { quoted: message });
+    } else if (action === 'off') {
+        settings[chatId] = false;
+        saveWelcomeSettings(settings);
+        await sock.sendMessage(chatId, { text: '❌ Welcome messages *imezimwa* kwa kikundi hiki.\n© bigmanj tech ™ with ♥︎' }, { quoted: message });
+    } else {
+        await sock.sendMessage(chatId, { text: `🔔 Welcome messages ni *${current ? 'imewashwa' : 'imezimwa'}*.\nTumia: .welcome on / .welcome off\n© bigmanj tech ™ with ♥︎` }, { quoted: message });
+    }
+}
+
+async function toggleGoodbyeCommand(sock, chatId, message, args) {
+    if (!chatId.endsWith('@g.us')) {
+        await sock.sendMessage(chatId, { text: '❌ Command hii inafanya kazi kwenye vikundi tu.' }, { quoted: message });
+        return;
+    }
+    const settings = loadGoodbyeSettings();
+    const current = settings[chatId] !== false;
+    const action = args[0]?.toLowerCase();
+    if (action === 'on') {
+        settings[chatId] = true;
+        saveGoodbyeSettings(settings);
+        await sock.sendMessage(chatId, { text: '✅ Goodbye messages *imewashwa* kwa kikundi hiki.\n© bigmanj tech ™ with ♥︎' }, { quoted: message });
+    } else if (action === 'off') {
+        settings[chatId] = false;
+        saveGoodbyeSettings(settings);
+        await sock.sendMessage(chatId, { text: '❌ Goodbye messages *imezimwa* kwa kikundi hiki.\n© bigmanj tech ™ with ♥︎' }, { quoted: message });
+    } else {
+        await sock.sendMessage(chatId, { text: `🔔 Goodbye messages ni *${current ? 'imewashwa' : 'imezimwa'}*.\nTumia: .goodbye on / .goodbye off\n© bigmanj tech ™ with ♥︎` }, { quoted: message });
+    }
+}
+
+// ========== GLOBAL SETTINGS & ONLINE TRACKER ==========
 global.packname = settings.packname;
 global.author = settings.author;
 global.channelLink = "https://whatsapp.com/channel/0029Vb6B9xFCxoAseuG1g610";
 global.ytch = "MICKEY";
 global.autostatusHandler = require(path.join(process.cwd(), 'commands', 'autostatus.js'));
 
-// Online tracker
 global.onlineUsers = new Map();
 const ONLINE_TIMEOUT = 5 * 60 * 1000;
 setInterval(() => {
@@ -208,39 +345,27 @@ function initOnlineTracker(sock) {
     console.log('✅ Online tracker initialised');
 }
 
-/**
- * Send an image with an interactive "Copy to Clipboard" button that copies '.menu' command.
- */
 async function sendImageWithCopyButton(sock, chatId, imageUrl) {
     try {
         const response = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 15000 });
         const imageBuffer = Buffer.from(response.data);
-        const interactiveButtons = [
-            {
-                name: 'cta_copy',
-                buttonParamsJson: JSON.stringify({
-                    display_text: '📋 MENU',
-                    id: 'copy_menu_command',
-                    copy_code: '.menu'
-                })
-            }
-        ];
+        const interactiveButtons = [{
+            name: 'cta_copy',
+            buttonParamsJson: JSON.stringify({ display_text: '📋 MENU', id: 'copy_menu_command', copy_code: '.menu' })
+        }];
         await sock.sendMessage(chatId, {
             image: imageBuffer,
             caption: '🌟 *BIGMANJ BOT V3 IMPROVED* 🌟\n *and ready 🚀*\n\n© bigmanj tech ™ with ♥︎ 🤖',
-            interactiveButtons: interactiveButtons
+            interactiveButtons
         });
-        console.log('✅ Sent image with interactive copy button (post-update).');
+        console.log('✅ Sent image with interactive copy button.');
     } catch (error) {
-        console.error('Failed to send image with button. Sending text fallback...', error);
+        console.error('Failed to send image with button.', error);
         const fallbackMsg = '______________________________\n🌟 *BIGMANJ BOT V3 IMPROVED* 🌟\n          *and ready 🚀*\n\n*© bigmanj tech ™ with ♥︎ 🤖*\n\n📋 Copy this command: `.menu`';
         await sock.sendMessage(chatId, { text: fallbackMsg });
     }
 }
 
-/**
- * Check if the bot was just updated (flag file exists) and send the third message.
- */
 async function handlePostUpdateMessage(sock) {
     const flagFile = path.join(process.cwd(), 'data', 'update_just_done.flag');
     if (fs.existsSync(flagFile)) {
@@ -262,17 +387,8 @@ async function handleGroupParticipantUpdate(sock, update) {
     try {
         const { id, participants, action, author } = update;
         if (!id.endsWith('@g.us')) return;
-
-        // Handle welcome (member joined)
-        if (action === 'add') {
-            await handleGroupWelcome(sock, update);
-        }
-        // Handle goodbye (member left/kicked)
-        else if (action === 'remove') {
-            await handleGroupGoodbye(sock, update);
-        }
-
-        // Existing promote/demote logic
+        if (action === 'add') await handleGroupWelcome(sock, update);
+        else if (action === 'remove') await handleGroupGoodbye(sock, update);
         let isPublic = true;
         try {
             const modeData = JSON.parse(fs.readFileSync('./data/messageCount.json'));
@@ -313,6 +429,7 @@ async function handleStatus(sock, messageUpdate) {
     } catch(e) { console.error(e); }
 }
 
+// ========== MESSAGE HANDLER WITH FULL SWITCH ==========
 async function handleMessages(sock, messageUpdate, printLog) {
     try {
         const { messages, type } = messageUpdate;
@@ -363,7 +480,6 @@ async function handleMessages(sock, messageUpdate, printLog) {
 
         if (userMessage.startsWith('.')) console.log(`📝 Command: ${userMessage}`);
 
-        // Ensure messageCount.json exists before reading
         const countFilePath = './data/messageCount.json';
         if (!fs.existsSync(countFilePath)) {
             fs.writeFileSync(countFilePath, JSON.stringify({ isPublic: true }, null, 2));
@@ -397,7 +513,6 @@ async function handleMessages(sock, messageUpdate, printLog) {
             }
         }
 
-        // Handle non-command messages (chatbot, etc.)
         if (!userMessage.startsWith('.')) {
             const replyQuoted = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
             const quotedText = (replyQuoted?.conversation || replyQuoted?.extendedTextMessage?.text || '').toString().toLowerCase();
@@ -457,59 +572,54 @@ async function handleMessages(sock, messageUpdate, printLog) {
             } catch(e) {}
         }
 
-        // ---------- SWITCH STATEMENT ----------
+        // ========== SWITCH (full original + new welcome/goodbye) ==========
         switch (true) {
-            // ========== SUBMENU COMMANDS ==========
             case userMessage === '.menu-general':
                 await menuGeneral(sock, chatId, message);
-                commandExecuted = true;
-                break;
+                commandExecuted = true; break;
             case userMessage === '.menu-group':
                 await menuGroup(sock, chatId, message);
-                commandExecuted = true;
-                break;
+                commandExecuted = true; break;
             case userMessage === '.menu-security':
                 await menuSecurity(sock, chatId, message);
-                commandExecuted = true;
-                break;
+                commandExecuted = true; break;
             case userMessage === '.menu-ai':
                 await menuAi(sock, chatId, message);
-                commandExecuted = true;
-                break;
+                commandExecuted = true; break;
             case userMessage === '.menu-download':
                 await menuDownload(sock, chatId, message);
-                commandExecuted = true;
-                break;
+                commandExecuted = true; break;
             case userMessage === '.menu-effects':
                 await menuEffects(sock, chatId, message);
-                commandExecuted = true;
-                break;
+                commandExecuted = true; break;
             case userMessage === '.menu-owner':
                 await menuOwner(sock, chatId, message);
-                commandExecuted = true;
-                break;
+                commandExecuted = true; break;
             case userMessage === '.menu-settings':
                 await menuSettings(sock, chatId, message);
-                commandExecuted = true;
-                break;
+                commandExecuted = true; break;
             case userMessage === '.menu-tools':
                 await menuTools(sock, chatId, message);
-                commandExecuted = true;
-                break;
+                commandExecuted = true; break;
             case userMessage === '.menu-fun':
                 await menuFun(sock, chatId, message);
-                commandExecuted = true;
-                break;
+                commandExecuted = true; break;
             case userMessage === '.menu-automation':
                 await menuAutomation(sock, chatId, message);
-                commandExecuted = true;
-                break;
+                commandExecuted = true; break;
             case userMessage === '.menu-all':
                 await menuAll(sock, chatId, message);
-                commandExecuted = true;
-                break;
+                commandExecuted = true; break;
 
-            // ========== OTHER COMMANDS ==========
+            // New welcome/goodbye toggle commands
+            case userMessage === '.welcome':
+                await toggleWelcomeCommand(sock, chatId, message, rawText.split(' ').slice(1));
+                commandExecuted = true; break;
+            case userMessage === '.goodbye':
+                await toggleGoodbyeCommand(sock, chatId, message, rawText.split(' ').slice(1));
+                commandExecuted = true; break;
+
+            // ==== ALL ORIGINAL COMMANDS (keep exactly as they were) ====
             case userMessage.startsWith('.add'):
                 const addArgs = userMessage.trim().split(/\s+/);
                 const phoneNumber = addArgs.slice(1).join(' ').trim();
@@ -722,18 +832,6 @@ async function handleMessages(sock, messageUpdate, printLog) {
             case userMessage.startsWith('.blur'): {
                 const quotedMessage = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
                 await blurCommand(sock, chatId, message, quotedMessage);
-                break;
-            }
-            case userMessage.startsWith('.welcome'): {
-                // This is now handled by the toggle command, but if you want to keep old behaviour you can.
-                // We'll replace with toggle command.
-                await toggleWelcomeCommand(sock, chatId, message, rawText.split(' ').slice(1));
-                commandExecuted = true;
-                break;
-            }
-            case userMessage.startsWith('.goodbye'): {
-                await toggleGoodbyeCommand(sock, chatId, message, rawText.split(' ').slice(1));
-                commandExecuted = true;
                 break;
             }
             case userMessage.startsWith('.antibadword'): {
