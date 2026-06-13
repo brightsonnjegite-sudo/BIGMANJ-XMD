@@ -80,29 +80,29 @@ function getSmartMenuCaption(pushname, mention, ping, ramBar, ramPercent, runtim
     📱 phone: wa.me/${ownerNumber}
     `.trim();
 
-    // --- HIDDEN PART (Mini menus, Features, Footer) ---
+    // --- HIDDEN PART (Mini menus listed with letters a-l, no backticks) ---
     const hiddenPartRaw = `
           📋 *MINI MENUS*
-▸ \.menu-general\
-▸ \.menu-group\
-▸ \.menu-security\
-▸ \.menu-ai\
-▸ \.menu-download\
-▸ \.menu-effects\
-▸ \.menu-owner\
-▸ \.menu-settings\
-▸ \.menu-tools\
-▸ \.menu-fun\
-▸ \.menu-automation\
-▸ \.menu-all\
+a  .menu-general
+b  .menu-group
+c  .menu-security
+d  .menu-ai
+e  .menu-download
+f  .menu-effects
+g  .menu-owner
+h  .menu-settings
+i  .menu-tools
+j  .menu-fun
+k  .menu-automation
+l  .menu-all
 
-         ✨*FEATURES*
+         ✨ *FEATURES*
 🔐 Russian Cyber Security Mode
 🧠 Premium AI Assistant (GPT‑4)
 🌑 Dark Futuristic UI
 🎵 MP3 audio & voice tools
 📸 Dynamic menu images
-> script 📃 is under construction🚧
+> script 📃 is under construction 🚧
     `.trim();
 
     // Add footer to hidden part
@@ -125,7 +125,7 @@ async function sendMp3Audio(sock, chatId, quotedMsg) {
         }, { quoted: quotedMsg });
     } catch (err) {
         console.error('MP3 audio send failed:', err.message);
-        await sock.sendMessage(chatId, { text: '🔊 Audio guide: use `.menu-ai` for AI, `.menu-download` for media, etc.' }, { quoted: quotedMsg });
+        await sock.sendMessage(chatId, { text: '🔊 Audio guide: use .menu-ai for AI, .menu-download for media, etc.' }, { quoted: quotedMsg });
     }
 }
 
