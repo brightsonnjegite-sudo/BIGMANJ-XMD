@@ -33,7 +33,7 @@ ${FOOTER}`;
             case 'on':
                 const existingConfig = await getAntilink(chatId, 'on');
                 if (existingConfig?.enabled) {
-                    await sock.sendMessage(chatId, { text: '*_Antilink is already ON_*\n' + FOOTER }, { quoted: message });
+                    await sock.sendMessage(chatId, { text: '*_Antilink is already ON💀_*\n' + FOOTER }, { quoted: message });
                     return;
                 }
                 // Default action = delete (quiet)
