@@ -21,7 +21,7 @@ function getSpeedStatus(latency) {
 async function pingCommand(sock, chatId, message) {
     try {
         const start = Date.now();
-        await sock.sendMessage(chatId, { text: '⚡' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: '📡' }, { quoted: message });
         const latency = Date.now() - start;
 
         const uptime = formatUptime(process.uptime());
@@ -34,14 +34,13 @@ async function pingCommand(sock, chatId, message) {
 
         const speedStatus = getSpeedStatus(latency);
 
-        const pingText = `╔════════════════════╗
-║   ⚡ *BIGMANj* ⚡    ║
-╚════════════════════╝
+        const pingText = `
+       *BIGMANJ BOT V3*    
 
-⚡ *BIGMANj ENGINE*
-SYSTEM STATUS REPORT
-
-━━━━━━━━━━━━━━━━━━━━
+       *BIGMANJ BOT V3 ENGINE*
+                  📡
+       *SYSTEM STATUS REPORT*
+━━━━━━━━━━━━━━━━━━
 
 🚀 *Speed*
 └➤ ${latency}ms ${speedStatus.emoji} ${speedStatus.text}
