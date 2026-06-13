@@ -108,7 +108,7 @@ function getSmartMenuCaption(pushname, mention, ping, ramBar, ramPercent, runtim
     `.trim();
 
     // Add footer to hidden part
-    const hiddenPart = Footer= '© bigmanj tech ™ with ♥︎');
+    const hiddenPart = Footer: '© bigmanj tech ™ with ♥︎');
     
     // Invisible trigger to force "Read more"
     const readMoreTrigger = getReadMoreTrigger();
