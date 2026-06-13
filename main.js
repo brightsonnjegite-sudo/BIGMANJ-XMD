@@ -1095,7 +1095,49 @@ async function handleMessages(sock, messageUpdate, printLog) {
         }
     }
 }
-
+// ========== WELCOME / GOODBYE TOGGLE (ONGEZA HIVI) ==========
+async function toggleWelcome(sock, chatId, message, args) {
+    if (!chatId.endsWith('@g.us')) {
+        await sock.sendMessage(chatId, { text: '❌ Command hii inafanya kazi kwenye vikundi tu.' }, { quoted: message });
+        return;
+    }
+    const settingsFile = './data/welcome_settings.json';
+    let settings = fs.existsSync(settingsFile) ? JSON.parse(fs.readFileSync(settingsFile)) : {};
+    const action = args[0]?.toLowerCase();
+    if (action === 'on') {
+        settings[chatId] = true;
+        fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2));
+        await sock.sendMessage(chatId, { text: '✅ Welcome messages *imewashwa* kwa kikundi hiki.\n© bigmanj tech ™ with ♥︎' }, { quoted: message });
+    } else if (action === 'off') {
+        settings[chatId] = false;
+        fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2));
+        await sock.sendMessage(chatId, { text: '❌ Welcome messages *imezimwa* kwa kikundi hiki.\n© bigmanj tech ™ with ♥︎' }, { quoted: message });
+    } else {
+        const status = settings[chatId] === false ? 'imezimwa' : 'imewashwa';
+        await sock.sendMessage(chatId, { text: `🔔 Welcome messages ni *${status}*.\nTumia: .welcome on / .welcome off\n© bigmanj tech ™ with ♥︎` }, { quoted: message });
+    }
+}
+async function toggleGoodbye(sock, chatId, message, args) {
+    if (!chatId.endsWith('@g.us')) {
+        await sock.sendMessage(chatId, { text: '❌ Command hii inafanya kazi kwenye vikundi tu.' }, { quoted: message });
+        return;
+    }
+    const settingsFile = './data/goodbye_settings.json';
+    let settings = fs.existsSync(settingsFile) ? JSON.parse(fs.readFileSync(settingsFile)) : {};
+    const action = args[0]?.toLowerCase();
+    if (action === 'on') {
+        settings[chatId] = true;
+        fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2));
+        await sock.sendMessage(chatId, { text: '✅ Goodbye messages *imewashwa* kwa kikundi hiki.\n© bigmanj tech ™ with ♥︎' }, { quoted: message });
+    } else if (action === 'off') {
+        settings[chatId] = false;
+        fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2));
+        await sock.sendMessage(chatId, { text: '❌ Goodbye messages *imezimwa* kwa kikundi hiki.\n© bigmanj tech ™ with ♥︎' }, { quoted: message });
+    } else {
+        const status = settings[chatId] === false ? 'imezimwa' : 'imewashwa';
+        await sock.sendMessage(chatId, { text: `🔔 Goodbye messages ni *${status}*.\nTumia: .goodbye on / .goodbye off\n© bigmanj tech ™ with ♥︎` }, { quoted: message });
+    }
+}
 module.exports = {
     handleMessages,
     handleStatus,
