@@ -47,69 +47,74 @@ const userImageIndex = new Map();
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// --------------------- CREATE "READ MORE" USING ZERO-WIDTH SPACES ---------------------
-function getReadMoreTrigger() {
-    // Zero-width spaces (invisible) – 5000 characters will force WhatsApp to truncate
-    return '\u200b'.repeat(5000);
+// --------------------- ADD FOOTER (like Discord embed) ---------------------
+function addFooterToMessage(text, footerText = '© bigmanj tech ™ with ♥︎') {
+    return `${text}\n\n${footerText}`;
 }
 
+// --------------------- FORCE "READ MORE" WITH ZERO-WIDTH SPACES ---------------------
+function getReadMoreTrigger() {
+    // 10,000 invisible characters force WhatsApp to create a "Read more" link
+    return '\u200b'.repeat(10000);
+}
+
+// --------------------- SMART MENU CAPTION (visible + hidden parts) ---------------------
 function getSmartMenuCaption(pushname, mention, ping, ramBar, ramPercent, runtime, version, totalCommands) {
     const ownerNumber = "255777580820";
     const ownerName = "bigmanj tech";
 
-    // SEHEMU INAYOONEKANA (visible part) – BOT INFO + OWNER
+    // --- VISIBLE PART (Bot info & Owner) ---
     const visiblePart = `
-╭━━〔 *🌟 BIGMANJ BOT V3* 〕━━⬣
-┃ ${getGreeting()} @${mention} (${pushname})
-┃
-┃ 🤖 *BOT INFO*
-┃ 🚀 Ping      : ${ping}ms
-┃ 💾 RAM       : ${ramBar} ${ramPercent}%
-┃ ⏱️ Uptime    : ${runtime}
-┃ 📦 Version   : ${version}
-┃ 📚 Commands  : ${totalCommands}
-┃
-┃ 👑 *OWNER*
-┃ Name  : ${ownerName}
-┃ Phone : wa.me/${ownerNumber}
+    〔 *🌟 BIGMANJ BOT V3* 〕
+ ${getGreeting()} @${mention} (${pushname})
+
+         🤖 *BOT INFO*
+     🚀 Ping      : ${ping}ms
+     💾 RAM       : ${ramBar} ${ramPercent}%
+     ⏱️ Uptime    : ${runtime}
+     📦 Version   : ${version}
+     📚 Commands  : ${totalCommands}
+
+          👑 *OWNER*
+    💀 name: ${ownerName}
+    📱 phone: wa.me/${ownerNumber}
     `.trim();
 
-    // SEHEMU ILIYOFICHWA (hidden behind "Read more") – MINI MENUS + FEATURES + FOOTER
-    const hiddenPart = `
-📋 *MINI MENUS*
-▸ \`.menu-general\`
-▸ \`.menu-group\`
-▸ \`.menu-security\`
-▸ \`.menu-ai\`
-▸ \`.menu-download\`
-▸ \`.menu-effects\`
-▸ \`.menu-owner\`
-▸ \`.menu-settings\`
-▸ \`.menu-tools\`
-▸ \`.menu-fun\`
-▸ \`.menu-automation\`
-▸ \`.menu-all\`
+    // --- HIDDEN PART (Mini menus, Features, Footer) ---
+    const hiddenPartRaw = `
+          📋 *MINI MENUS*
+▸ \.menu-general\
+▸ \.menu-group\
+▸ \.menu-security\
+▸ \.menu-ai\
+▸ \.menu-download\
+▸ \.menu-effects\
+▸ \.menu-owner\
+▸ \.menu-settings\
+▸ \.menu-tools\
+▸ \.menu-fun\
+▸ \.menu-automation\
+▸ \.menu-all\
 
-✨ *FEATURES*
+         ✨*FEATURES*
 🔐 Russian Cyber Security Mode
 🧠 Premium AI Assistant (GPT‑4)
 🌑 Dark Futuristic UI
 🎵 MP3 audio & voice tools
 📸 Dynamic menu images
-> *~script 📃 is under construction🚧~*
-> *~sorry 😔 for my rough work~*
-
-© bigmanj tech ™ with ♥︎
+> script 📃 is under construction🚧
     `.trim();
 
-    // Ongeza herufi zisizoonekana nyingi ili kulazimisha "Read more"
-    const readMoreTrigger = getReadMoreTrigger();
+    // Add footer to hidden part
+    const hiddenPart = addFooterToMessage(hiddenPartRaw, '© bigmanj tech ™ with ♥︎');
     
-    // Unganisha: visible + invisible trigger + hidden
+    // Invisible trigger to force "Read more"
+    const readMoreTrigger = getReadMoreTrigger();
+
     return `${visiblePart}${readMoreTrigger}${hiddenPart}`;
 }
 
-// --------------------- Send MP3 audio ---------------------
+// --------------------- Send MP3 audio (normal, not voice note) ---------------------
 async function sendMp3Audio(sock, chatId, quotedMsg) {
     const audioUrl = 'https://files.catbox.moe/sc2tlj.mp3';
     try {
@@ -124,7 +129,7 @@ async function sendMp3Audio(sock, chatId, quotedMsg) {
     }
 }
 
-// --------------------- MAIN EXPORT ---------------------
+// --------------------- MAIN EXPORT (menu command) ---------------------
 const menuHandler = async (sock, chatId, m) => {
     const text = getMessageText(m).trim().toLowerCase();
     if (text !== '.menu') return;
@@ -146,16 +151,16 @@ const menuHandler = async (sock, chatId, m) => {
     const totalCommands = 210;
     const mention = getMentionNumber(senderId);
 
-    // Cycling image index
+    // Cycle image index per user
     let currentIndex = userImageIndex.get(senderId) || 0;
     const currentImageUrl = MENU_IMAGES[currentIndex];
     const nextIndex = (currentIndex + 1) % MENU_IMAGES.length;
     userImageIndex.set(senderId, nextIndex);
 
-    // Generate caption with "Read more" (using zero-width spaces)
+    // Build full caption with "Read more"
     const caption = getSmartMenuCaption(pushname, mention, ping, ramBar, ramPercent, runtime, version, totalCommands);
 
-    // Send image with caption
+    // Send image + caption
     try {
         await sock.sendMessage(chatId, {
             image: { url: currentImageUrl },
@@ -164,7 +169,6 @@ const menuHandler = async (sock, chatId, m) => {
         }, { quoted: m });
     } catch (err) {
         console.error('Menu image send failed:', err.message);
-        // Fallback: send only text
         await sock.sendMessage(chatId, { text: caption, mentions: [senderId] }, { quoted: m });
     }
 
