@@ -29,7 +29,6 @@ const getGreeting = () => {
 
 const getMentionNumber = (jid) => jid.split('@')[0];
 
-// Your 9 cycling images
 const MENU_IMAGES = [
     'https://files.catbox.moe/uii8bi.jpg',
     'https://files.catbox.moe/69csjf.jpg',
@@ -42,22 +41,17 @@ const MENU_IMAGES = [
     'https://files.catbox.moe/gom02i.jpg'
 ];
 
-// Store per‑user image index
 const userImageIndex = new Map();
-
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// --------------------- FORCE "READ MORE" WITH ZERO-WIDTH SPACES ---------------------
 function getReadMoreTrigger() {
     return '\u200b'.repeat(10000);
 }
 
-// --------------------- SMART MENU CAPTION (visible + hidden parts) ---------------------
 function getSmartMenuCaption(pushname, mention, ping, ramBar, ramPercent, runtime, version, totalCommands) {
     const ownerNumber = "255777580820";
     const ownerName = "bigmanj tech";
 
-    // --- VISIBLE PART (Bot info & Owner) ---
     const visiblePart = `
     〔 *🌟 BIGMANJ BOT V3* 〕
  ${getGreeting()} @${mention} (${pushname})
@@ -74,7 +68,6 @@ function getSmartMenuCaption(pushname, mention, ping, ramBar, ramPercent, runtim
     📱 phone: wa.me/${ownerNumber}
     `.trim();
 
-    // --- HIDDEN PART (Mini menus, Features, Footer) ---
     const hiddenPart = `
           📋 *MINI MENUS*
 a  .menu-general
@@ -98,14 +91,12 @@ l  .menu-all
 📸 Dynamic menu images
 > script 📃 under construction 🚧
 
-© BIGMANJ BOT V3.0.0 – by bigmanj tech
+\© BIGMANJ BOT V3.0.0 – by bigmanj tech\
     `.trim();
 
-    const readMoreTrigger = getReadMoreTrigger();
-    return `${visiblePart}${readMoreTrigger}${hiddenPart}`;
+    return `${visiblePart}${getReadMoreTrigger()}${hiddenPart}`;
 }
 
-// --------------------- Send MP3 audio (normal, not voice note) ---------------------
 async function sendMp3Audio(sock, chatId, quotedMsg) {
     const audioUrl = 'https://files.catbox.moe/sc2tlj.mp3';
     try {
@@ -120,7 +111,6 @@ async function sendMp3Audio(sock, chatId, quotedMsg) {
     }
 }
 
-// --------------------- MAIN EXPORT (menu command) ---------------------
 const menuHandler = async (sock, chatId, m) => {
     const text = getMessageText(m).trim().toLowerCase();
     if (text !== '.menu') return;
@@ -131,7 +121,6 @@ const menuHandler = async (sock, chatId, m) => {
     await sock.sendMessage(chatId, { react: { text: '📌', key: m.key } });
     const ping = Date.now() - start;
 
-    // System stats
     const totalMem = os.totalmem();
     const freeMem = os.freemem();
     const usedMem = totalMem - freeMem;
@@ -142,16 +131,13 @@ const menuHandler = async (sock, chatId, m) => {
     const totalCommands = 210;
     const mention = getMentionNumber(senderId);
 
-    // Cycle image index per user
     let currentIndex = userImageIndex.get(senderId) || 0;
     const currentImageUrl = MENU_IMAGES[currentIndex];
     const nextIndex = (currentIndex + 1) % MENU_IMAGES.length;
     userImageIndex.set(senderId, nextIndex);
 
-    // Build full caption with "Read more"
     const caption = getSmartMenuCaption(pushname, mention, ping, ramBar, ramPercent, runtime, version, totalCommands);
 
-    // Send image + caption
     try {
         await sock.sendMessage(chatId, {
             image: { url: currentImageUrl },
@@ -163,7 +149,6 @@ const menuHandler = async (sock, chatId, m) => {
         await sock.sendMessage(chatId, { text: caption, mentions: [senderId] }, { quoted: m });
     }
 
-    // Send audio after 0.1 seconds
     await sleep(100);
     await sendMp3Audio(sock, chatId, m);
 };
