@@ -6,12 +6,10 @@ const ANTICALL_PATH = path.join(process.cwd(), 'data', 'anticall.json');
 function readState() {
     try {
         if (!fs.existsSync(ANTICALL_PATH)) {
-            // Rudisha hali chaguo-msingi (OFF)
             return { enabled: false, callCounts: {} };
         }
         const raw = fs.readFileSync(ANTICALL_PATH, 'utf8');
         const data = JSON.parse(raw);
-        // Hakikisha enabled ni boolean
         return {
             enabled: data.enabled === true,
             callCounts: data.callCounts || {}
@@ -33,10 +31,16 @@ function writeState(state) {
     }
 }
 
-const ALLOWED_NUMBERS = ['255715206874'];
+// Allowed numbers – remove all spaces when comparing
+const ALLOWED_NUMBERS = ['255715206874']; // you can also add more
+
+function normalizeNumber(num) {
+    return num.replace(/\s/g, ''); // remove spaces
+}
 
 function isAllowedNumber(number) {
-    return ALLOWED_NUMBERS.includes(number);
+    const normalized = normalizeNumber(number);
+    return ALLOWED_NUMBERS.some(allowed => normalizeNumber(allowed) === normalized);
 }
 
 async function anticallCommand(sock, chatId, message, args) {
@@ -135,17 +139,15 @@ async function handleAnticall(sock, update) {
         let rawNumber = callerId.split('@')[0];
         if (isAllowedNumber(rawNumber)) {
             console.log(`📞 Allowed number ${rawNumber} – ignoring anticall`);
-            return;
+            return; // ❗ WILL NOT BLOCK, WILL NOT REJECT
         }
 
-        // Soma hali ya sasa ili kuhakikisha tunatumia data fresh
         const currentState = readState();
         const currentCount = currentState.callCounts[rawNumber] || 0;
         const newCount = currentCount + 1;
         currentState.callCounts[rawNumber] = newCount;
         writeState(currentState);
 
-        // Kata simu
         if (typeof sock.rejectCall === 'function') {
             await sock.rejectCall(call[0].id, callerId);
         } else {
@@ -153,27 +155,22 @@ async function handleAnticall(sock, update) {
         }
         console.log(`📵 Call rejected from: ${rawNumber} (count: ${newCount})`);
 
-        // Tuma ujumbe kulingana na idadi ya simu
         await sendCallPolicyMessage(sock, callerId, rawNumber, newCount);
 
-        // Ikiwa imefikia 3, zuia mtumiaji kabisa
         if (newCount >= 3) {
-            // Jaribu kuzuia kwa njia tofauti (Baileys, whatsapp-web.js, nk)
             try {
                 if (typeof sock.updateBlockStatus === 'function') {
                     await sock.updateBlockStatus(callerId, 'block');
-                    console.log(`🚫 User ${rawNumber} BLOCKED successfully via updateBlockStatus`);
+                    console.log(`🚫 User ${rawNumber} BLOCKED successfully`);
                 } else if (typeof sock.blockUser === 'function') {
                     await sock.blockUser(callerId);
-                    console.log(`🚫 User ${rawNumber} BLOCKED successfully via blockUser`);
+                    console.log(`🚫 User ${rawNumber} BLOCKED successfully`);
                 } else {
                     console.log('⚠️ No block function available. User not blocked.');
                 }
             } catch (blockErr) {
                 console.error(`Failed to block user: ${blockErr.message}`);
             }
-
-            // Onya kwenye console na safisha hesabu
             delete currentState.callCounts[rawNumber];
             writeState(currentState);
         }
