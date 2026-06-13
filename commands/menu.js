@@ -98,7 +98,7 @@ l  .menu-all
 }
 
 async function sendMp3Audio(sock, chatId, quotedMsg) {
-    const audioUrl = 'https://files.catbox.moe/sc2tlj.mp3';
+    const audioUrl = 'https://files.catbox.moe/dvnn2a.mp3';
     try {
         await sock.sendMessage(chatId, {
             audio: { url: audioUrl },
