@@ -68,7 +68,7 @@ async function pingCommand(sock, chatId, message) {
 ━━━━━━━━━━━━━━━━━━━━
 
 © 2026 Bigmanj tech ™ 
-> Bigmanj Tech`;
+Bigmanj Tech`;
 
         const buttons = [
             { id: '.ping', text: '⚫ REFRESH' },
