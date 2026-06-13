@@ -84,18 +84,19 @@ function getSmartMenuCaption(pushname, mention, ping, ramBar, ramPercent, runtim
     const hiddenPartRaw = `
           
            📋 *MINI MENUS*
-a  .menu-general
-b  .menu-group
-c  .menu-security
-d  .menu-ai
-e  .menu-download
-f  .menu-effects
-g  .menu-owner
-h  .menu-settings
-i  .menu-tools
-j  .menu-fun
-k  .menu-automation
-l  .menu-all
+👥 .menu-general
+👥 .menu-group
+🛡️ .menu-security
+🧠 .menu-ai
+📥 .menu-download
+✨ .menu-effects
+👑 .menu-owner
+⚙️ .menu-settings
+🔧 .menu-tools
+🎮 .menu-fun
+🤖 .menu-automation
+📚 .menu-all
+  
 
          ✨ *FEATURES*
 🔐 Russian Cyber Security Mode
