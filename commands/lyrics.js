@@ -1,5 +1,5 @@
+const axios = require('axios');
 const moment = require('moment-timezone');
-const nexray = require('api-nexray');   // new API package
 
 const getMentionNumber = (jid) => jid.split('@')[0];
 const getGreeting = () => {
@@ -9,7 +9,7 @@ const getGreeting = () => {
     return '🌙 Habari za Jioni';
 };
 
-// Helper to extract artist/title from query
+// Helper: parse "Artist - Title" or "Title by Artist"
 function parseQuery(query) {
     if (query.includes(' - ')) {
         const parts = query.split(' - ');
@@ -22,23 +22,68 @@ function parseQuery(query) {
     return { artist: null, title: query };
 }
 
-// Nexray API using the new package
+// 1. Nexray API (primary)
 async function fetchFromNexray(query) {
-    const response = await nexray.get('/search/lyrics', {
-        q: query
-    });
-    // The structure from your example: response = { status, result: { lyrics: { plain_lyrics, track_name, artist_name } } }
-    if (response && response.status === true && response.result && response.result.lyrics && response.result.lyrics.plain_lyrics) {
+    const url = `https://api.nexray.eu.cc/search/lyrics?q=${encodeURIComponent(query)}`;
+    const response = await axios.get(url, { timeout: 10000 });
+    const data = response.data;
+    if (data?.status === true && data.result?.lyrics?.plain_lyrics) {
         return {
-            title: response.result.lyrics.track_name || response.result.title,
-            artist: response.result.lyrics.artist_name || response.result.artist,
-            lyrics: response.result.lyrics.plain_lyrics,
+            title: data.result.lyrics.track_name || data.result.title,
+            artist: data.result.lyrics.artist_name || data.result.artist,
+            lyrics: data.result.lyrics.plain_lyrics,
             source: 'Nexray'
         };
     }
-    throw new Error('No lyrics from Nexray');
+    throw new Error('Nexray no lyrics');
 }
 
+// 2. SomeRandomAPI (secondary)
+async function fetchFromSomeRandom(query) {
+    const url = `https://some-random-api.com/lyrics?title=${encodeURIComponent(query)}`;
+    const res = await axios.get(url, { timeout: 10000 });
+    if (res.data?.lyrics) {
+        return {
+            title: res.data.title,
+            artist: res.data.author,
+            lyrics: res.data.lyrics,
+            source: 'SomeRandomAPI'
+        };
+    }
+    throw new Error('SomeRandom no lyrics');
+}
+
+// 3. Lyrics.ovh (needs artist & title)
+async function fetchFromLyricsOvh(artist, title) {
+    const url = `https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`;
+    const res = await axios.get(url, { timeout: 10000 });
+    if (res.data?.lyrics) {
+        return {
+            title: title,
+            artist: artist,
+            lyrics: res.data.lyrics,
+            source: 'lyrics.ovh'
+        };
+    }
+    throw new Error('Lyrics.ovh no lyrics');
+}
+
+// 4. Lyrist API (last fallback)
+async function fetchFromLyrist(query) {
+    const url = `https://lyrist.vercel.app/api/lyrics?q=${encodeURIComponent(query)}`;
+    const res = await axios.get(url, { timeout: 10000 });
+    if (res.data?.lyrics) {
+        return {
+            title: res.data.title || query,
+            artist: res.data.artist || 'Unknown',
+            lyrics: res.data.lyrics,
+            source: 'Lyrist'
+        };
+    }
+    throw new Error('Lyrist no lyrics');
+}
+
+// Main command
 const lyricsCommand = async (sock, chatId, message, args) => {
     try {
         let query = (args || '').trim();
@@ -57,10 +102,38 @@ const lyricsCommand = async (sock, chatId, message, args) => {
 
         await sock.sendMessage(chatId, { react: { text: '⏳', key: message.key } });
 
-        let result = await fetchFromNexray(query);
+        let result = null;
+        let { artist, title } = parseQuery(query);
+
+        // Try Nexray first
+        try {
+            result = await fetchFromNexray(query);
+        } catch (e) {
+            console.log(`Nexray failed: ${e.message}`);
+            // Try SomeRandom
+            try {
+                result = await fetchFromSomeRandom(query);
+            } catch (e2) {
+                console.log(`SomeRandom failed: ${e2.message}`);
+                // Try lyrics.ovh if we have artist & title
+                if (artist && title) {
+                    try {
+                        result = await fetchFromLyricsOvh(artist, title);
+                    } catch (e3) {}
+                }
+                // Last fallback: Lyrist
+                if (!result) {
+                    try {
+                        result = await fetchFromLyrist(query);
+                    } catch (e4) {
+                        console.log(`Lyrist failed: ${e4.message}`);
+                    }
+                }
+            }
+        }
 
         if (!result) {
-            throw new Error(`No lyrics found for "${query}". Try a different song title.`);
+            throw new Error(`No lyrics found for "${query}". Try a different song title or format "Artist - Title".`);
         }
 
         const senderId = message.key.participant || message.key.remoteJid;
