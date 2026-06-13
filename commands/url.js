@@ -3,8 +3,10 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 
+const FOOTER = '© bigmanj tech ™ with ♥︎';
+
 /**
- * Upload a file to catbox.moe using raw multipart/form-data (no external packages)
+ * Upload a file to catbox.moe using raw multipart/form-data
  * @param {string} filePath - local path to the file
  * @returns {Promise<string>} - direct URL (https://files.catbox.moe/...)
  */
@@ -34,14 +36,21 @@ async function uploadToCatbox(filePath) {
             'Content-Type': `multipart/form-data; boundary=${boundary}`,
             'Content-Length': body.length
         },
-        timeout: 60000
+        timeout: 120000, // 2 minutes for large files
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity
     });
 
-    const url = response.data.trim();
-    if (!url.startsWith('https://files.catbox.moe/')) {
-        throw new Error('Catbox returned invalid URL: ' + url);
+    let url = response.data.trim();
+    // Catbox sometimes returns just the URL, sometimes with extra whitespace
+    if (url.startsWith('https://files.catbox.moe/')) {
+        return url;
     }
-    return url;
+    // If it's an error message
+    if (url.startsWith('error')) {
+        throw new Error(`Catbox error: ${url}`);
+    }
+    throw new Error('Catbox returned an invalid response: ' + url);
 }
 
 async function getMediaBufferAndExt(message) {
@@ -93,11 +102,11 @@ async function urlCommand(sock, chatId, message) {
         if (!media) media = await getQuotedMediaBufferAndExt(message);
 
         if (!media) {
-            await sock.sendMessage(chatId, { text: '❌ Send or reply to a media (image, video, audio, sticker, document) to get a Catbox URL.' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: '❌ Send or reply to a media (image, video, audio, sticker, document) to get a Catbox URL.\n' + FOOTER }, { quoted: message });
             return;
         }
 
-        const tempDir = path.join(__dirname, '../temp');
+        const tempDir = path.join(process.cwd(), 'temp');
         if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
         const tempPath = path.join(tempDir, `${Date.now()}${media.ext}`);
         fs.writeFileSync(tempPath, media.buffer);
@@ -105,23 +114,27 @@ async function urlCommand(sock, chatId, message) {
         let url = '';
         try {
             url = await uploadToCatbox(tempPath);
+        } catch (uploadErr) {
+            console.error('Upload error:', uploadErr.message);
+            await sock.sendMessage(chatId, { text: `❌ Upload failed: ${uploadErr.message}\n` + FOOTER }, { quoted: message });
+            return;
         } finally {
+            // Clean up temp file
             setTimeout(() => {
                 try { if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath); } catch (e) {}
             }, 2000);
         }
 
         if (!url) {
-            await sock.sendMessage(chatId, { text: '❌ Failed to upload media to Catbox.' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: '❌ Failed to upload media to Catbox.\n' + FOOTER }, { quoted: message });
             return;
         }
 
-        // Added footer
-        const responseText = `🔗 *Catbox URL:*\n${url}\n\n© bigmanj tech ™ with ♥︎`;
+        const responseText = `🔗 *Catbox URL:*\n${url}\n\n${FOOTER}`;
         await sock.sendMessage(chatId, { text: responseText }, { quoted: message });
     } catch (error) {
         console.error('[URL] error:', error?.message || error);
-        await sock.sendMessage(chatId, { text: '❌ Failed to convert media to URL.' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: '❌ Failed to convert media to URL.\n' + FOOTER }, { quoted: message });
     }
 }
 
