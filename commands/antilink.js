@@ -39,7 +39,7 @@ ${FOOTER}`;
                 // Default action = delete (quiet)
                 const result = await setAntilink(chatId, 'on', 'delete');
                 await sock.sendMessage(chatId, { 
-                    text: result ? '*_⚡ NO LINKS ALLOWED HERE (quiet delete mode)_*\n' + FOOTER : '*_Failed to turn ON Antilink_*\n' + FOOTER 
+                    text: result ? '* _🔗NO LINKS ALLOWED HERE💀 (quiet delete mode)_*\n' + FOOTER : '*_Failed to turn ON Antilink_*\n' + FOOTER 
                 }, { quoted: message });
                 break;
 
