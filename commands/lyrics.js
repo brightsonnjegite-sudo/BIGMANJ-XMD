@@ -1,5 +1,5 @@
-const axios = require('axios');
 const moment = require('moment-timezone');
+const nexray = require('api-nexray');   // new API package
 
 const getMentionNumber = (jid) => jid.split('@')[0];
 const getGreeting = () => {
@@ -9,7 +9,7 @@ const getGreeting = () => {
     return '🌙 Habari za Jioni';
 };
 
-// Helper to extract artist/title from query (optional, but kept for better search)
+// Helper to extract artist/title from query
 function parseQuery(query) {
     if (query.includes(' - ')) {
         const parts = query.split(' - ');
@@ -22,16 +22,17 @@ function parseQuery(query) {
     return { artist: null, title: query };
 }
 
-// Nexray API (only source)
+// Nexray API using the new package
 async function fetchFromNexray(query) {
-    const url = `https://api.nexray.eu.cc/search/lyrics?q=${encodeURIComponent(query)}`;
-    const response = await axios.get(url, { timeout: 15000 });
-    const data = response.data;
-    if (data && data.status === true && data.result && data.result.lyrics && data.result.lyrics.plain_lyrics) {
+    const response = await nexray.get('/search/lyrics', {
+        q: query
+    });
+    // The structure from your example: response = { status, result: { lyrics: { plain_lyrics, track_name, artist_name } } }
+    if (response && response.status === true && response.result && response.result.lyrics && response.result.lyrics.plain_lyrics) {
         return {
-            title: data.result.lyrics.track_name || data.result.title,
-            artist: data.result.lyrics.artist_name || data.result.artist,
-            lyrics: data.result.lyrics.plain_lyrics,
+            title: response.result.lyrics.track_name || response.result.title,
+            artist: response.result.lyrics.artist_name || response.result.artist,
+            lyrics: response.result.lyrics.plain_lyrics,
             source: 'Nexray'
         };
     }
@@ -56,7 +57,6 @@ const lyricsCommand = async (sock, chatId, message, args) => {
 
         await sock.sendMessage(chatId, { react: { text: '⏳', key: message.key } });
 
-        // Use only Nexray API
         let result = await fetchFromNexray(query);
 
         if (!result) {
