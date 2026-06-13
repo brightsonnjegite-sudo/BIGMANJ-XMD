@@ -1,5 +1,5 @@
 /**
- * BIGMANJ BOT V3 - COMPLETE MAIN HANDLER
+ * 📡 BIGMANJ BOT V3 - COMPLETE MAIN HANDLER
  * Includes: all original commands + welcome/goodbye toggle + event handlers
  */
 
