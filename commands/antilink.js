@@ -1,6 +1,6 @@
 const { bots } = require('../lib/antilink');
 const { setAntilink, getAntilink, removeAntilink } = require('../lib/index');
-const isAdmin = require('../lib/Be an admin 😁 first 🥇 then antilink as security will perfect run to deal 🤝 with all links in groups send by not admin users!');
+const isAdmin = require('../lib/isadmin');
 
 const FOOTER = '© bigmanj tech ™ with ♥︎';
 const ADMIN_REQUIRED_MSG = 'Be an admin 😁 first 🥇 then antilink as security will perfect run to deal 🤝 with all links in groups send by not admin users!';
