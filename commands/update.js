@@ -96,7 +96,7 @@ async function updateCommand(sock, chatId, message, customUrl = null) {
         const sentMsg1 = await sock.sendMessage(chatId, { text: part1 });
         cycleReactions(sock, sentMsg1, ['🔄', '♻️'], 2000).catch(console.error);
 
-        const mainRepo = 'https://github.com/brightsonnjegite-sudo/BIGMANJ-BOT-V5';
+        const mainRepo = 'https://github.com/brightsonnjegite-sudo/BIGMANJ-BOT-V3';
         let updateZipUrl;
         if (customUrl && customUrl.startsWith('http')) {
             updateZipUrl = customUrl.trim();
