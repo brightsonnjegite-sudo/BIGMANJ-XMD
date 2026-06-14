@@ -3,11 +3,13 @@ const { setAntilink, getAntilink, removeAntilink } = require('../lib/index');
 const isAdmin = require('../lib/isAdmin');
 
 const FOOTER = '© bigmanj tech ™ with ♥︎';
+const ADMIN_REQUIRED_MSG = 'Be an admin 😁 first 🥇 then antilink as security will perfect run to deal 🤝 with all links in groups send by not admin users!';
 
 async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSenderAdmin, message) {
     try {
+        // Check if command sender is group admin
         if (!isSenderAdmin) {
-            await sock.sendMessage(chatId, { text: '``` Be an admin 😁 first 🥇 then antilink as security will perfect run to deal 🤝 with all links in groups send by not admin users!```\n' + FOOTER }, { quoted: message });
+            await sock.sendMessage(chatId, { text: ADMIN_REQUIRED_MSG + '\n' + FOOTER }, { quoted: message });
             return;
         }
 
@@ -89,13 +91,13 @@ async function handleLinkDetection(sock, chatId, message, userMessage, senderId)
     const config = await getAntilink(chatId, 'on');
     if (!config?.enabled) return;
 
-    const action = config.action || 'delete'; // default delete (quiet)
+    const action = config.action || 'delete';
 
-    // Link detection patterns (all links)
+    // Link detection
     const linkPattern = /https?:\/\/\S+|www\.\S+|(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/\S*)?/i;
     if (!linkPattern.test(userMessage)) return;
 
-    // 1. Delete the offending message (always)
+    // Delete the offending message (always)
     const quotedMessageId = message.key.id;
     const quotedParticipant = message.key.participant || senderId;
     try {
@@ -105,14 +107,12 @@ async function handleLinkDetection(sock, chatId, message, userMessage, senderId)
         console.log(`Deleted link message from ${senderId}`);
     } catch (err) {
         console.error('Failed to delete message:', err);
-        // If deletion fails, continue with action anyway
     }
 
-    // 2. Take further action based on config
     const mention = senderId.split('@')[0];
 
     if (action === 'delete') {
-        // Quiet delete – no message at all
+        // Quiet delete – no message
         return;
     }
     else if (action === 'warn') {
@@ -135,8 +135,8 @@ async function handleLinkDetection(sock, chatId, message, userMessage, senderId)
             console.log(`Kicked ${senderId} for posting link`);
         } catch (err) {
             console.error('Failed to kick user:', err);
-            // Instead of "Make sure bot is admin", use the custom message:
-            await sock.sendMessage(chatId, { text: `Be an admin 😁 first 🥇 then antilink as security will perfect run to deal 🤝 with all links in groups send by not admin users!\n${FOOTER}` });
+            // Use the custom message instead of "Make bot admin"
+            await sock.sendMessage(chatId, { text: ADMIN_REQUIRED_MSG + '\n' + FOOTER });
         }
     }
 }
