@@ -46,7 +46,7 @@ ${FOOTER}`;
 
             case 'off':
                 await removeAntilink(chatId, 'on');
-                await sock.sendMessage(chatId, { text: '*_Antilink has been turned OFF_*\n' + FOOTER }, { quoted: message });
+                await sock.sendMessage(chatId, { text: '*Antilink has been turned OFF*\n' + FOOTER }, { quoted: message });
                 break;
 
             case 'set':
@@ -135,7 +135,7 @@ async function handleLinkDetection(sock, chatId, message, userMessage, senderId)
             console.log(`Kicked ${senderId} for posting link`);
         } catch (err) {
             console.error('Failed to kick user:', err);
-            // Use the custom message instead of "Make bot admin"
+            // Use the custom message instead of "Be an admin 😁 first 🥇 then antilink as security will perfect run to deal 🤝 with all links in groups send by not admin users!"
             await sock.sendMessage(chatId, { text: ADMIN_REQUIRED_MSG + '\n' + FOOTER });
         }
     }
