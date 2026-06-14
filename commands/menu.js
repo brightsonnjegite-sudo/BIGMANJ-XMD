@@ -1,14 +1,47 @@
-const { generateWAMessageFromContent, prepareWAMessageMedia } = require('@whiskeysockets/baileys');
+const moment = require('moment-timezone');
+const axios = require('axios');
+const os = require('os');
 
-// Your Catbox images (add as many as you want)
+// --------------------- Helper functions ---------------------
+const getMessageText = (m) => {
+    if (m.message?.conversation) return m.message.conversation;
+    if (m.message?.extendedTextMessage?.text) return m.message.extendedTextMessage.text;
+    return '';
+};
+
+const formatUptime = (seconds) => {
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+    if (hours > 0) return `${hours}h ${minutes}m ${secs}s`;
+    if (minutes > 0) return `${minutes}m ${secs}s`;
+    return `${secs}s`;
+};
+
+const getGreeting = () => {
+    const hour = moment().tz('Africa/Dar_es_Salaam').hour();
+    if (hour >= 5 && hour < 12) return '🌅 Доброе утро';
+    if (hour >= 12 && hour < 18) return '🌤️ Добрый день';
+    return '🌙 Добрый вечер';
+};
+
+const getMentionNumber = (jid) => jid.split('@')[0];
+
+// Orodha kamili ya picha (za zamani + mpya)
 const MENU_IMAGES = [
+    // zamani
     'https://files.catbox.moe/uii8bi.jpg',
+    'https://files.catbox.moe/69csjf.jpg',
     'https://files.catbox.moe/69csjf.jpg',
     'https://files.catbox.moe/wz28nv.jpg',
     'https://files.catbox.moe/07brl4.jpg',
+    'https://files.catbox.moe/uii8bi.jpg',
     'https://files.catbox.moe/dhl8dp.jpg',
     'https://files.catbox.moe/n6adzs.jpg',
     'https://files.catbox.moe/gom02i.jpg',
+    // mpya
     'https://files.catbox.moe/vvt57n.jpg',
     'https://files.catbox.moe/sp5pe9.jpg',
     'https://files.catbox.moe/x91kwx.jpg',
@@ -23,89 +56,120 @@ const MENU_IMAGES = [
     'https://files.catbox.moe/x39ule.jpg'
 ];
 
-// Map image index to mini‑menu command (adjust to your actual commands)
-const MENU_COMMANDS = [
-    '.menu-general',
-    '.menu-group',
-    '.menu-security',
-    '.menu-ai',
-    '.menu-download',
-    '.menu-effects',
-    '.menu-owner',
-    '.menu-settings',
-    '.menu-tools',
-    '.menu-fun',
-    '.menu-automation',
-    '.menu-all',
-    '.menu-general',
-    '.menu-group',
-    '.menu-security',
-    '.menu-ai',
-    '.menu-download',
-    '.menu-effects',
-    '.menu-owner'
-];
+const userImageIndex = new Map();
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-async function menuHandler(sock, chatId, m) {
+function getReadMoreTrigger() {
+    return '\u200b'.repeat(10000);
+}
+
+function getSmartMenuCaption(pushname, mention, ping, ramBar, ramPercent, runtime, version, totalCommands) {
+    const ownerNumber = "255777580820";
+    const ownerName = "bigmanj tech";
+
+    // Sehemu inayoonekana mara moja (BOT INFO + OWNER)
+    const visiblePart = `
+    〔 *🌟 BIGMANJ BOT V3* 〕
+ ${getGreeting()} @${mention} (${pushname})
+
+         🤖 *BOT INFO*
+     🚀 Ping      : ${ping}ms
+     💾 RAM       : ${ramBar} ${ramPercent}%
+     ⏱️ Uptime    : ${runtime}
+     📦 Version   : ${version}
+     📚 Commands  : ${totalCommands}
+
+          👑 *OWNER*
+    💀 name: ${ownerName}
+    📱 phone: wa.me/${ownerNumber}
+    `.trim();
+
+    // Sehemu iliyofichwa (MINI MENU kwa sanduku + icons)
+    const hiddenPart = `
+╭───────────────── MINI MENUS ─────────────────╮
+│  ⚙️ .menu-general                            │
+│  👥 .menu-group                              │
+│  🛡️ .menu-security                           │
+│  🧠 .menu-ai                                 │
+│  📥 .menu-download                           │
+│  ✨ .menu-effects                            │
+│  👑 .menu-owner                              │
+│  ⚙️ .menu-settings                           │
+│  🔧 .menu-tools                              │
+│  🎮 .menu-fun                                │
+│  🤖 .menu-automation                         │
+│  📚 .menu-all                                │
+╰──────────────────────────────────────────────╯
+
+✨ *FEATURES*
+🔐 Russian Cyber Security Mode
+🧠 Premium AI Assistant (GPT‑4)
+🌑 Dark Futuristic UI
+🎵 MP3 audio & voice tools
+📸 Dynamic menu images (now ${MENU_IMAGES.length} slides)
+
+© BIGMANJ BOT V3.0.0 – by bigmanj tech
+    `.trim();
+
+    return `${visiblePart}${getReadMoreTrigger()}${hiddenPart}`;
+}
+
+async function sendMp3Audio(sock, chatId, quotedMsg) {
+    const audioUrl = 'https://files.catbox.moe/dvnn2a.mp3';
+    try {
+        await sock.sendMessage(chatId, {
+            audio: { url: audioUrl },
+            mimetype: 'audio/mpeg',
+            ptt: false
+        }, { quoted: quotedMsg });
+    } catch (err) {
+        console.error('MP3 audio send failed:', err.message);
+        await sock.sendMessage(chatId, { text: '🔊 Audio guide: use .menu-ai for AI, .menu-download for media, etc.' }, { quoted: quotedMsg });
+    }
+}
+
+const menuHandler = async (sock, chatId, m) => {
     const text = getMessageText(m).trim().toLowerCase();
     if (text !== '.menu') return;
 
-    // Prepare each card (image + button)
-    const cards = [];
-    for (let i = 0; i < MENU_IMAGES.length; i++) {
-        const imageUrl = MENU_IMAGES[i];
-        const cmd = MENU_COMMANDS[i % MENU_COMMANDS.length];
-        
-        // Upload image to WhatsApp servers
-        const { imageMessage } = await prepareWAMessageMedia(
-            { image: { url: imageUrl } },
-            { upload: sock.waUploadToServer }
-        );
-        
-        cards.push({
-            body: { text: `📌 *Card ${i+1}*` },
-            footer: { text: `Tap button to open menu` },
-            header: { hasMedia: true, imageMessage },
-            nativeFlowMessage: {
-                buttons: [
-                    {
-                        name: 'quick_reply',
-                        buttonParamsJson: JSON.stringify({
-                            display_text: `📂 ${cmd.replace('.menu-', '').toUpperCase()}`,
-                            id: cmd
-                        })
-                    }
-                ]
-            }
-        });
+    const senderId = m.key.participant || m.key.remoteJid;
+    const pushname = m.pushName || "User";
+    const start = Date.now();
+    await sock.sendMessage(chatId, { react: { text: '📌', key: m.key } });
+    const ping = Date.now() - start;
+
+    const totalMem = os.totalmem();
+    const freeMem = os.freemem();
+    const usedMem = totalMem - freeMem;
+    const ramPercent = Math.round((usedMem / totalMem) * 100);
+    const ramBar = "█".repeat(Math.round(ramPercent / 10)) + "░".repeat(10 - Math.round(ramPercent / 10));
+    const runtime = formatUptime(process.uptime());
+    const version = "3.0.0";
+    const totalCommands = 210;
+    const mention = getMentionNumber(senderId);
+
+    // Picha inayozunguka (slideshow) – kila .menu inaleta picha tofauti
+    let currentIndex = userImageIndex.get(senderId) || 0;
+    const currentImageUrl = MENU_IMAGES[currentIndex];
+    const nextIndex = (currentIndex + 1) % MENU_IMAGES.length;
+    userImageIndex.set(senderId, nextIndex);
+
+    const caption = getSmartMenuCaption(pushname, mention, ping, ramBar, ramPercent, runtime, version, totalCommands);
+
+    // Tuma picha + caption (picha inaonekana kabisa, sio ndani ya Read more)
+    try {
+        await sock.sendMessage(chatId, {
+            image: { url: currentImageUrl },
+            caption: caption,
+            mentions: [senderId]
+        }, { quoted: m });
+    } catch (err) {
+        console.error('Menu image send failed:', err.message);
+        await sock.sendMessage(chatId, { text: caption, mentions: [senderId] }, { quoted: m });
     }
 
-    // Build the carousel message
-    const carouselMessage = {
-        viewOnceMessage: {
-            message: {
-                interactiveMessage: {
-                    body: { text: '✨ *BIGMANJ BOT V3 MENU* ✨' },
-                    footer: { text: '👑 Swipe to see all options • © bigmanj tech ™ with ♥︎' },
-                    header: { title: '🎠 CAROUSEL MENU' },
-                    nativeFlowMessage: {
-                        childNativeFlowMessages: cards,
-                        buttons: [] // optional global button
-                    }
-                }
-            }
-        }
-    };
-
-    await sock.sendMessage(chatId, carouselMessage, { quoted: m });
-    await sock.sendMessage(chatId, { react: { text: '🖼️', key: m.key } });
-}
-
-// Helper to extract message text (keep your existing)
-function getMessageText(m) {
-    if (m.message?.conversation) return m.message.conversation;
-    if (m.message?.extendedTextMessage?.text) return m.message.extendedTextMessage.text;
-    return '';
-}
+    await sleep(100);
+    await sendMp3Audio(sock, chatId, m);
+};
 
 module.exports = menuHandler;
