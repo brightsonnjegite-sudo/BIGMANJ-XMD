@@ -27,7 +27,6 @@ const getGreeting = () => {
 
 const getMentionNumber = (jid) => jid.split('@')[0];
 
-// Orodha ya picha (za zamani + mpya)
 const MENU_IMAGES = [
     'https://files.catbox.moe/uii8bi.jpg',
     'https://files.catbox.moe/69csjf.jpg',
@@ -81,7 +80,6 @@ const menuHandler = async (sock, chatId, m) => {
     const nextIndex = (currentIndex + 1) % MENU_IMAGES.length;
     userImageIndex.set(senderId, nextIndex);
 
-    // ========== MAANDISHI YA MENU (yaliyopangwa) ==========
     const body = 
 `✦ ${getGreeting()} @${pushname} ✦
 
@@ -137,15 +135,25 @@ const menuHandler = async (sock, chatId, m) => {
     ];
 
     try {
+        // Sasa tunatumia externalAdReply kwa thumbnail badala ya kutuma picha kama media
         await sock.sendMessage(chatId, {
-            image: { url: currentImageUrl },
-            caption: body,
+            text: body,
             footer: footer,
             buttons: buttons,
-            headerType: 1
+            contextInfo: {
+                externalAdReply: {
+                    title: "BIGMANJ BOT V3",
+                    body: "Menu Utakuwa",
+                    thumbnailUrl: currentImageUrl,
+                    sourceUrl: "https://whatsapp.com/channel/0029Vb6B9xFCxoAseuG1g610",
+                    mediaType: 1,
+                    renderLargerThumbnail: false
+                }
+            }
         }, { quoted: m });
     } catch (err) {
         console.error('Menu send failed:', err.message);
+        // Fallback: text + footer tu
         await sock.sendMessage(chatId, { text: `${body}\n\n${footer}` }, { quoted: m });
     }
 
