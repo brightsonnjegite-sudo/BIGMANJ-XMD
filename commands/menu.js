@@ -1,6 +1,8 @@
 const moment = require('moment-timezone');
+const axios = require('axios');
 const os = require('os');
 
+// --------------------- Helper functions ---------------------
 const getMessageText = (m) => {
     if (m.message?.conversation) return m.message.conversation;
     if (m.message?.extendedTextMessage?.text) return m.message.extendedTextMessage.text;
@@ -27,6 +29,116 @@ const getGreeting = () => {
 
 const getMentionNumber = (jid) => jid.split('@')[0];
 
+const MENU_IMAGES = [
+    'https://files.catbox.moe/uii8bi.jpg',
+    'https://files.catbox.moe/69csjf.jpg',
+    'https://files.catbox.moe/69csjf.jpg',
+    'https://files.catbox.moe/wz28nv.jpg',
+    'https://files.catbox.moe/07brl4.jpg',
+    'https://files.catbox.moe/uii8bi.jpg',
+    'https://files.catbox.moe/dhl8dp.jpg',
+    'https://files.catbox.moe/n6adzs.jpg',
+    'https://files.catbox.moe/gom02i.jpg',
+    'https://files.catbox.moe/vvt57n.jpg',
+    'https://files.catbox.moe/sp5pe9.jpg',
+    'https://files.catbox.moe/x91kwx.jpg',
+    'https://files.catbox.moe/8lz3ku.jpg',
+    'https://files.catbox.moe/9yvg4v.jpg',
+    'https://files.catbox.moe/1z5alt.jpg',
+    'https://files.catbox.moe/5rsxjx.jpg',
+    'https://files.catbox.moe/ke4n31.jpg',
+    'https://files.catbox.moe/0s1yur.jpg',
+    'https://files.catbox.moe/q01e2v.jpg',
+    'https://files.catbox.moe/e0esva.jpg',
+    'https://files.catbox.moe/x39ule.jpg'
+];
+
+const userImageIndex = new Map();
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+function getReadMoreTrigger() {
+    return '\u200b'.repeat(10000);
+}
+
+function getSmartMenuCaption(pushname, mention, ping, ramBar, ramPercent, runtime, version, totalCommands, isOwner) {
+    const ownerNumber = "255777580820";
+    const ownerName = "bigmanj tech";
+
+    // Sehemu inayoonekana (kabla ya Read More)
+    const visiblePart = `
+    〔 *🌟 BIGMANJ BOT V3* 〕
+ ${getGreeting()} @${mention} (${pushname})
+
+         🤖 *BOT INFO*
+     🚀 Ping      : ${ping}ms
+     💾 RAM       : ${ramBar} ${ramPercent}%
+     ⏱️ Uptime    : ${runtime}
+     📦 Version   : ${version}
+     📚 Commands  : ${totalCommands}
+
+          👑 *OWNER*
+    💀 name: ${ownerName}
+    📱 phone: wa.me/${ownerNumber}
+
+         🧑‍💻 *USER INFO*
+    ├ Status: ${isOwner ? "Owner" : "User"}
+    ├ Name: ${pushname}
+    ├ Prefix: {.}
+
+         👥 *CREATORS*
+    ├ bigmanj tech
+    ├ ♥︎
+
+         📋 *ABOUT*
+    ├ © bigmanj tech ™ 
+    ├ main menu
+    ├ mini menu
+    `.trim();
+
+    // Sehemu iliyofichwa (baada ya Read More)
+    const hiddenPart = `
+         📋 *MINI MENU*
+├ ⚙️ .menu-general
+├ 👥 .menu-group
+├ 🛡️ .menu-security
+├ 🧠 .menu-ai
+├ 📥 .menu-download
+├ ✨ .menu-effects
+├ 👑 .menu-owner
+├ ⚙️ .menu-settings
+├ 🔧 .menu-tools
+├ 🎮 .menu-fun
+├ 🤖 .menu-automation
+├ 📚 .menu-all
+
+         ✨ *FEATURES*
+🔐 Russian Cyber Security Mode
+🧠 Premium AI Assistant (GPT‑4)
+🌑 Dark Futuristic UI
+🎵 MP3 audio & voice tools
+📸 Dynamic menu images (${MENU_IMAGES.length} slides)
+
+© BIGMANJ BOT V3.0.0 – by bigmanj tech
+    `.trim();
+
+    const readMore = getReadMoreTrigger();
+    return `${visiblePart}${readMore}${hiddenPart}`;
+}
+
+async function sendMp3Audio(sock, chatId, quotedMsg) {
+    const audioUrl = 'https://files.catbox.moe/dvnn2a.mp3';
+    try {
+        await sock.sendMessage(chatId, {
+            audio: { url: audioUrl },
+            mimetype: 'audio/mpeg',
+            ptt: false
+        }, { quoted: quotedMsg });
+    } catch (err) {
+        console.error('MP3 audio send failed:', err.message);
+        await sock.sendMessage(chatId, { text: '🔊 Audio guide: use .menu-ai for AI, .menu-download for media, etc.' }, { quoted: quotedMsg });
+    }
+}
+
 const menuHandler = async (sock, chatId, m) => {
     const text = getMessageText(m).trim().toLowerCase();
     if (text !== '.menu') return;
@@ -48,87 +160,29 @@ const menuHandler = async (sock, chatId, m) => {
     const mention = getMentionNumber(senderId);
     const isOwner = (senderId.split('@')[0] === "255777580820");
 
-    // ---------- Sehemu inayoonekana (kabla ya Read More) ----------
-    const visiblePart = 
-`✦ ${getGreeting()} @${pushname} ✦
+    // Cycling image
+    let currentIndex = userImageIndex.get(senderId) || 0;
+    const currentImageUrl = MENU_IMAGES[currentIndex];
+    const nextIndex = (currentIndex + 1) % MENU_IMAGES.length;
+    userImageIndex.set(senderId, nextIndex);
 
-╭──❍「 *User Info* 」❍
-├ Status: ${isOwner ? "Owner" : "User"}
-├ Name: @${pushname}
-├ Prefix: Multiple
-╰─┬────❍
+    const caption = getSmartMenuCaption(pushname, mention, ping, ramBar, ramPercent, runtime, version, totalCommands, isOwner);
 
-╭─┴─❍「 *Bot Info* 」❍
-├ Name: BIGMANJ BOT V3
-├ Version: ${version}
-├ Library: Baileys
-├ Uptime: ${runtime}
-├ Powered: bigmanj tech
-├ Speed: ${(ping / 1000).toFixed(2)} s
-├ Ram: [${ramBar}] ${ramPercent}%
-╰─┬────❍
-
-╭─┴─❍「 *Creators* 」❍
-├ bigmanj tech
-├ BIGMANj
-╰─┬────❍
-
-╭─┴─❍「 *About* 」❍
-├ Reseller ®
-├ Owner Ⓞ
-├ Group Ⓖ
-╰──────❍`;
-
-    // ---------- Sehemu iliyofichwa (itaonekana baada ya kubofya Read More) ----------
-    const hiddenPart = 
-`
-╭─┴─❍「 *Mini Menus* 」❍
-├ ⚙️ .menu-general
-├ 👥 .menu-group
-├ 🛡️ .menu-security
-├ 🧠 .menu-ai
-├ 📥 .menu-download
-├ ✨ .menu-effects
-├ 👑 .menu-owner
-├ ⚙️ .menu-settings
-├ 🔧 .menu-tools
-├ 🎮 .menu-fun
-├ 🤖 .menu-automation
-├ 📚 .menu-all
-╰──────❍
-
-*Usage: .menu*
-*BIGMANJ BOT V3 Developed by bigmanj tech with ♡*
-
-© BIGMANJ BOT V3 — by bigmanj tech`;
-
-    // Read More trigger: herufi zisizoonekana mara 10000
-    const readMore = '\u200b'.repeat(10000);
-
-    const fullCaption = `${visiblePart}${readMore}${hiddenPart}`;
-
+    // Send image + caption
     try {
         await sock.sendMessage(chatId, {
-            text: fullCaption,
+            image: { url: currentImageUrl },
+            caption: caption,
             mentions: [senderId]
         }, { quoted: m });
     } catch (err) {
-        console.error('Menu send failed:', err.message);
-        await sock.sendMessage(chatId, { text: fullCaption, mentions: [senderId] }, { quoted: m });
+        console.error('Menu image send failed:', err.message);
+        await sock.sendMessage(chatId, { text: caption, mentions: [senderId] }, { quoted: m });
     }
 
-    // Sauti baada ya 0.1 sekunde
-    await new Promise(resolve => setTimeout(resolve, 100));
-    const audioUrl = 'https://files.catbox.moe/dvnn2a.mp3';
-    try {
-        await sock.sendMessage(chatId, {
-            audio: { url: audioUrl },
-            mimetype: 'audio/mpeg',
-            ptt: false
-        }, { quoted: m });
-    } catch (err) {
-        console.error('MP3 audio send failed:', err.message);
-    }
+    // Send audio after 0.1 seconds
+    await sleep(100);
+    await sendMp3Audio(sock, chatId, m);
 };
 
 module.exports = menuHandler;
