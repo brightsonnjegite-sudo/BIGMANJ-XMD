@@ -1,8 +1,6 @@
 const moment = require('moment-timezone');
-const axios = require('axios');
 const os = require('os');
 
-// --------------------- Helper functions ---------------------
 const getMessageText = (m) => {
     if (m.message?.conversation) return m.message.conversation;
     if (m.message?.extendedTextMessage?.text) return m.message.extendedTextMessage.text;
@@ -29,9 +27,8 @@ const getGreeting = () => {
 
 const getMentionNumber = (jid) => jid.split('@')[0];
 
-// Orodha kamili ya picha (za zamani + mpya)
+// Orodha ya picha (za zamani + mpya)
 const MENU_IMAGES = [
-    // zamani
     'https://files.catbox.moe/uii8bi.jpg',
     'https://files.catbox.moe/69csjf.jpg',
     'https://files.catbox.moe/69csjf.jpg',
@@ -41,7 +38,6 @@ const MENU_IMAGES = [
     'https://files.catbox.moe/dhl8dp.jpg',
     'https://files.catbox.moe/n6adzs.jpg',
     'https://files.catbox.moe/gom02i.jpg',
-    // mpya
     'https://files.catbox.moe/vvt57n.jpg',
     'https://files.catbox.moe/sp5pe9.jpg',
     'https://files.catbox.moe/x91kwx.jpg',
@@ -58,75 +54,6 @@ const MENU_IMAGES = [
 
 const userImageIndex = new Map();
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-function getReadMoreTrigger() {
-    return '\u200b'.repeat(10000);
-}
-
-function getSmartMenuCaption(pushname, mention, ping, ramBar, ramPercent, runtime, version, totalCommands) {
-    const ownerNumber = "255777580820";
-    const ownerName = "bigmanj tech";
-
-    // Sehemu inayoonekana mara moja (BOT INFO + OWNER)
-    const visiblePart = `
-    〔 *🌟 BIGMANJ BOT V3* 〕
- ${getGreeting()} @${mention} (${pushname})
-
-         🤖 *BOT INFO*
-     🚀 Ping      : ${ping}ms
-     💾 RAM       : ${ramBar} ${ramPercent}%
-     ⏱️ Uptime    : ${runtime}
-     📦 Version   : ${version}
-     📚 Commands  : ${totalCommands}
-
-          👑 *OWNER*
-    💀 name: ${ownerName}
-    📱 phone: wa.me/${ownerNumber}
-    `.trim();
-
-    // Sehemu iliyofichwa (MINI MENU kwa sanduku + icons)
-    const hiddenPart = `
-╭───────────────── MINI MENUS ─────────────────╮
-│  ⚙️ .menu-general                            │
-│  👥 .menu-group                              │
-│  🛡️ .menu-security                           │
-│  🧠 .menu-ai                                 │
-│  📥 .menu-download                           │
-│  ✨ .menu-effects                            │
-│  👑 .menu-owner                              │
-│  ⚙️ .menu-settings                           │
-│  🔧 .menu-tools                              │
-│  🎮 .menu-fun                                │
-│  🤖 .menu-automation                         │
-│  📚 .menu-all                                │
-╰──────────────────────────────────────────────╯
-
-✨ *FEATURES*
-🔐 Russian Cyber Security Mode
-🧠 Premium AI Assistant (GPT‑4)
-🌑 Dark Futuristic UI
-🎵 MP3 audio & voice tools
-📸 Dynamic menu images (now ${MENU_IMAGES.length} slides)
-
-© BIGMANJ BOT V3.0.0 – by bigmanj tech
-    `.trim();
-
-    return `${visiblePart}${getReadMoreTrigger()}${hiddenPart}`;
-}
-
-async function sendMp3Audio(sock, chatId, quotedMsg) {
-    const audioUrl = 'https://files.catbox.moe/dvnn2a.mp3';
-    try {
-        await sock.sendMessage(chatId, {
-            audio: { url: audioUrl },
-            mimetype: 'audio/mpeg',
-            ptt: false
-        }, { quoted: quotedMsg });
-    } catch (err) {
-        console.error('MP3 audio send failed:', err.message);
-        await sock.sendMessage(chatId, { text: '🔊 Audio guide: use .menu-ai for AI, .menu-download for media, etc.' }, { quoted: quotedMsg });
-    }
-}
 
 const menuHandler = async (sock, chatId, m) => {
     const text = getMessageText(m).trim().toLowerCase();
@@ -147,29 +74,92 @@ const menuHandler = async (sock, chatId, m) => {
     const version = "3.0.0";
     const totalCommands = 210;
     const mention = getMentionNumber(senderId);
+    const isOwner = (senderId.split('@')[0] === "255777580820");
 
-    // Picha inayozunguka (slideshow) – kila .menu inaleta picha tofauti
     let currentIndex = userImageIndex.get(senderId) || 0;
     const currentImageUrl = MENU_IMAGES[currentIndex];
     const nextIndex = (currentIndex + 1) % MENU_IMAGES.length;
     userImageIndex.set(senderId, nextIndex);
 
-    const caption = getSmartMenuCaption(pushname, mention, ping, ramBar, ramPercent, runtime, version, totalCommands);
+    // ========== MAANDISHI YA MENU (yaliyopangwa) ==========
+    const body = 
+`✦ ${getGreeting()} @${pushname} ✦
 
-    // Tuma picha + caption (picha inaonekana kabisa, sio ndani ya Read more)
+╭──❍「 *User Info* 」❍
+├ Status: ${isOwner ? "Owner" : "User"}
+├ Name: @${pushname}
+├ Prefix: Multiple
+╰─┬────❍
+
+╭─┴─❍「 *Bot Info* 」❍
+├ Name: BIGMANJ BOT V3
+├ Version: ${version}
+├ Library: Baileys
+├ Uptime: ${runtime}
+├ Powered: bigmanj tech
+├ Speed: ${(ping / 1000).toFixed(2)} s
+├ Ram: [${ramBar}] ${ramPercent}%
+╰─┬────❍
+
+╭─┴─❍「 *Creators* 」❍
+├ bigmanj tech
+├ BIGMANj
+╰─┬────❍
+
+╭─┴─❍「 *About* 」❍
+├ Reseller ®
+├ Owner Ⓞ
+├ Group Ⓖ
+╰─┬────❍
+
+╭─┴─❍「 *Mini Menus* 」❍
+├ ⚙️ .menu-general
+├ 👥 .menu-group
+├ 🛡️ .menu-security
+├ 🧠 .menu-ai
+├ 📥 .menu-download
+├ ✨ .menu-effects
+├ 👑 .menu-owner
+├ ⚙️ .menu-settings
+├ 🔧 .menu-tools
+├ 🎮 .menu-fun
+├ 🤖 .menu-automation
+├ 📚 .menu-all
+╰──────❍
+
+*Usage: .menu*
+*Developed by bigmanj tech with ♡*`;
+
+    const footer = "© BIGMANJ BOT V3 — by bigmanj tech";
+    const buttons = [
+        { buttonId: '.storemenu', buttonText: { displayText: '🛒 BIGMANj Store' }, type: 1 },
+        { buttonId: '.teamsupport', buttonText: { displayText: '👥 Team Support' }, type: 1 }
+    ];
+
     try {
         await sock.sendMessage(chatId, {
             image: { url: currentImageUrl },
-            caption: caption,
-            mentions: [senderId]
+            caption: body,
+            footer: footer,
+            buttons: buttons,
+            headerType: 1
         }, { quoted: m });
     } catch (err) {
-        console.error('Menu image send failed:', err.message);
-        await sock.sendMessage(chatId, { text: caption, mentions: [senderId] }, { quoted: m });
+        console.error('Menu send failed:', err.message);
+        await sock.sendMessage(chatId, { text: `${body}\n\n${footer}` }, { quoted: m });
     }
 
     await sleep(100);
-    await sendMp3Audio(sock, chatId, m);
+    const audioUrl = 'https://files.catbox.moe/dvnn2a.mp3';
+    try {
+        await sock.sendMessage(chatId, {
+            audio: { url: audioUrl },
+            mimetype: 'audio/mpeg',
+            ptt: false
+        }, { quoted: m });
+    } catch (err) {
+        console.error('MP3 audio send failed:', err.message);
+    }
 };
 
 module.exports = menuHandler;
