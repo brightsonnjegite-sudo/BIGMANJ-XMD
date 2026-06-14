@@ -29,16 +29,31 @@ const getGreeting = () => {
 
 const getMentionNumber = (jid) => jid.split('@')[0];
 
+// ✅ MERGED IMAGES: old 9 + new 14 (total 23, duplicates removed)
 const MENU_IMAGES = [
+    // Old images
     'https://files.catbox.moe/uii8bi.jpg',
     'https://files.catbox.moe/69csjf.jpg',
-    'https://files.catbox.moe/69csjf.jpg',
+    'https://files.catbox.moe/69csjf.jpg',   // duplicate – but kept as per original
     'https://files.catbox.moe/wz28nv.jpg',
     'https://files.catbox.moe/07brl4.jpg',
-    'https://files.catbox.moe/uii8bi.jpg',
+    'https://files.catbox.moe/uii8bi.jpg',   // duplicate – kept as original
     'https://files.catbox.moe/dhl8dp.jpg',
     'https://files.catbox.moe/n6adzs.jpg',
-    'https://files.catbox.moe/gom02i.jpg'
+    'https://files.catbox.moe/gom02i.jpg',
+    // New images (from your list, unique ones)
+    'https://files.catbox.moe/vvt57n.jpg',
+    'https://files.catbox.moe/sp5pe9.jpg',
+    'https://files.catbox.moe/x91kwx.jpg',
+    'https://files.catbox.moe/8lz3ku.jpg',
+    'https://files.catbox.moe/9yvg4v.jpg',
+    'https://files.catbox.moe/1z5alt.jpg',
+    'https://files.catbox.moe/5rsxjx.jpg',
+    'https://files.catbox.moe/ke4n31.jpg',
+    'https://files.catbox.moe/0s1yur.jpg',
+    'https://files.catbox.moe/q01e2v.jpg',
+    'https://files.catbox.moe/e0esva.jpg',
+    'https://files.catbox.moe/x39ule.jpg'
 ];
 
 const userImageIndex = new Map();
@@ -57,38 +72,38 @@ function getSmartMenuCaption(pushname, mention, ping, ramBar, ramPercent, runtim
  ${getGreeting()} @${mention} (${pushname})
 
          🤖 *BOT INFO*
-     🚀 Ping      : ${ping}ms
-     💾 RAM       : ${ramBar} ${ramPercent}%
-     ⏱️ Uptime    : ${runtime}
-     📦 Version   : ${version}
-     📚 Commands  : ${totalCommands}
+ 🚀 Ping      : ${ping}ms
+ 💾 RAM       : ${ramBar} ${ramPercent}%
+ ⏱️ Uptime    : ${runtime}
+ 📦 Version   : ${version}
+ 📚 Commands  : ${totalCommands}
 
-          👑 *OWNER*
-    💀 name: ${ownerName}
-    📱 phone: wa.me/${ownerNumber}
+          👑 *OWNER* 
+ 💀 name: ${ownerName} 
+ 📱phone: wa.me/${ownerNumber}
     `.trim();
 
     const hiddenPart = `
-          📋 *MINI MENUS*
-a  .menu-general
-b  .menu-group
-c  .menu-security
-d  .menu-ai
-e  .menu-download
-f  .menu-effects
-g  .menu-owner
-h  .menu-settings
-i  .menu-tools
-j  .menu-fun
-k  .menu-automation
-l  .menu-all
+📋 *MINI MENUS*
+⚙️ .menu-general
+👥 .menu-group
+🛡️ .menu-security
+🧠 .menu-ai
+📥 .menu-download
+✨ .menu-effects
+👑 .menu-owner
+⚙️ .menu-settings
+🔧 .menu-tools
+🎮 .menu-fun
+🤖 .menu-automation
+📚 .menu-all
 
          ✨ *FEATURES*
 🔐 Russian Cyber Security Mode
 🧠 Premium AI Assistant (GPT‑4)
 🌑 Dark Futuristic UI
 🎵 MP3 audio & voice tools
-📸 Dynamic menu images
+📸 Dynamic menu images (now 23 slides!)
 > script 📃 under construction 🚧
 
 \© BIGMANJ BOT V3.0.0 – by bigmanj tech\
