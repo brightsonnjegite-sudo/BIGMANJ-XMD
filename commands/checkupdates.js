@@ -10,7 +10,7 @@ const VERSION_FILE = path.join(__dirname, '../data/currentVersion.json');
 const LOCAL_HASH_FILE = path.join(__dirname, '../data/localHash.json');
 const LOCAL_MANIFEST_FILE = path.join(__dirname, '../data/localManifest.json');
 const REPO_OWNER = 'brightsonnjegite-sudo';
-const REPO_NAME = 'Mickey-Glitch';
+const REPO_NAME = 'BIGMANJ-BOT-V3';
 
 let reminderCache = null;
 
