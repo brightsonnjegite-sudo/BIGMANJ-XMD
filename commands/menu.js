@@ -27,33 +27,6 @@ const getGreeting = () => {
 
 const getMentionNumber = (jid) => jid.split('@')[0];
 
-const MENU_IMAGES = [
-    'https://files.catbox.moe/uii8bi.jpg',
-    'https://files.catbox.moe/69csjf.jpg',
-    'https://files.catbox.moe/69csjf.jpg',
-    'https://files.catbox.moe/wz28nv.jpg',
-    'https://files.catbox.moe/07brl4.jpg',
-    'https://files.catbox.moe/uii8bi.jpg',
-    'https://files.catbox.moe/dhl8dp.jpg',
-    'https://files.catbox.moe/n6adzs.jpg',
-    'https://files.catbox.moe/gom02i.jpg',
-    'https://files.catbox.moe/vvt57n.jpg',
-    'https://files.catbox.moe/sp5pe9.jpg',
-    'https://files.catbox.moe/x91kwx.jpg',
-    'https://files.catbox.moe/8lz3ku.jpg',
-    'https://files.catbox.moe/9yvg4v.jpg',
-    'https://files.catbox.moe/1z5alt.jpg',
-    'https://files.catbox.moe/5rsxjx.jpg',
-    'https://files.catbox.moe/ke4n31.jpg',
-    'https://files.catbox.moe/0s1yur.jpg',
-    'https://files.catbox.moe/q01e2v.jpg',
-    'https://files.catbox.moe/e0esva.jpg',
-    'https://files.catbox.moe/x39ule.jpg'
-];
-
-const userImageIndex = new Map();
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
 const menuHandler = async (sock, chatId, m) => {
     const text = getMessageText(m).trim().toLowerCase();
     if (text !== '.menu') return;
@@ -75,12 +48,8 @@ const menuHandler = async (sock, chatId, m) => {
     const mention = getMentionNumber(senderId);
     const isOwner = (senderId.split('@')[0] === "255777580820");
 
-    let currentIndex = userImageIndex.get(senderId) || 0;
-    const currentImageUrl = MENU_IMAGES[currentIndex];
-    const nextIndex = (currentIndex + 1) % MENU_IMAGES.length;
-    userImageIndex.set(senderId, nextIndex);
-
-    const body = 
+    // ---------- Sehemu inayoonekana (kabla ya Read More) ----------
+    const visiblePart = 
 `✦ ${getGreeting()} @${pushname} ✦
 
 ╭──❍「 *User Info* 」❍
@@ -108,8 +77,11 @@ const menuHandler = async (sock, chatId, m) => {
 ├ Reseller ®
 ├ Owner Ⓞ
 ├ Group Ⓖ
-╰─┬────❍
+╰──────❍`;
 
+    // ---------- Sehemu iliyofichwa (itaonekana baada ya kubofya Read More) ----------
+    const hiddenPart = 
+`
 ╭─┴─❍「 *Mini Menus* 」❍
 ├ ⚙️ .menu-general
 ├ 👥 .menu-group
@@ -126,38 +98,27 @@ const menuHandler = async (sock, chatId, m) => {
 ╰──────❍
 
 *Usage: .menu*
-*Developed by bigmanj tech with ♡*`;
+*BIGMANJ BOT V3 Developed by bigmanj tech with ♡*
 
-    const footer = "© BIGMANJ BOT V3 — by bigmanj tech";
-    const buttons = [
-        { buttonId: '.storemenu', buttonText: { displayText: '🛒 BIGMANj Store' }, type: 1 },
-        { buttonId: '.teamsupport', buttonText: { displayText: '👥 Team Support' }, type: 1 }
-    ];
+© BIGMANJ BOT V3 — by bigmanj tech`;
+
+    // Read More trigger: herufi zisizoonekana mara 10000
+    const readMore = '\u200b'.repeat(10000);
+
+    const fullCaption = `${visiblePart}${readMore}${hiddenPart}`;
 
     try {
-        // Sasa tunatumia externalAdReply kwa thumbnail badala ya kutuma picha kama media
         await sock.sendMessage(chatId, {
-            text: body,
-            footer: footer,
-            buttons: buttons,
-            contextInfo: {
-                externalAdReply: {
-                    title: "BIGMANJ BOT V3",
-                    body: "Menu Utakuwa",
-                    thumbnailUrl: currentImageUrl,
-                    sourceUrl: "https://whatsapp.com/channel/0029Vb6B9xFCxoAseuG1g610",
-                    mediaType: 1,
-                    renderLargerThumbnail: false
-                }
-            }
+            text: fullCaption,
+            mentions: [senderId]
         }, { quoted: m });
     } catch (err) {
         console.error('Menu send failed:', err.message);
-        // Fallback: text + footer tu
-        await sock.sendMessage(chatId, { text: `${body}\n\n${footer}` }, { quoted: m });
+        await sock.sendMessage(chatId, { text: fullCaption, mentions: [senderId] }, { quoted: m });
     }
 
-    await sleep(100);
+    // Sauti baada ya 0.1 sekunde
+    await new Promise(resolve => setTimeout(resolve, 100));
     const audioUrl = 'https://files.catbox.moe/dvnn2a.mp3';
     try {
         await sock.sendMessage(chatId, {
