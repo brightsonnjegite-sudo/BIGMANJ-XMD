@@ -9,7 +9,7 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
     try {
         // Check if command sender is group admin
         if (!isSenderAdmin) {
-            await sock.sendMessage(chatId, { text: ADMIN_REQUIRED_MSG + '\n' + FOOTER }, { quoted: message });
+            await sock.sendMessage(chatId, { text:Be an admin 😁 first 🥇 then antilink as security will perfect run to deal 🤝 with all links in groups send by not admin users! + '\n' + FOOTER }, { quoted: Be an admin 😁 first 🥇 then antilink as security will perfect run to deal 🤝 with all links in groups send by not admin users! });
             return;
         }
 
